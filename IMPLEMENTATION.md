@@ -18,7 +18,16 @@ One row per PRD milestone. Status: `planned`, `in progress`, `done`.
 | Phase | Milestone | Status | Verified by |
 |---|---|---|---|
 | 0 | Blueprint skeleton (no PRD milestone) | done | full gate green |
-| 1 | M1: {from PRD.md} | planned | {tests that prove the acceptance criteria} |
+| 1 | M1: Document model and Markdown round trip | planned | |
+| 2 | M2: Glossary | planned | |
+| 3 | M3: Translation core with fake LLM | planned | |
+| 4 | M4: Input readers | planned | |
+| 5 | M5: Ollama adapter and model registry | planned | |
+| 6 | M6: Output writers | planned | |
+| 7 | M7: DOCX in-place translation | planned | |
+| 8 | M8: Streamlit UI | planned | |
+| 9 | M9: Deployment and landing page integration | planned | |
+| 10 | M10: Scanned PDFs (optional, not in v1) | planned | |
 
 ## 3. Module map
 
