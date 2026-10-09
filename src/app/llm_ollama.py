@@ -5,6 +5,7 @@ from typing import Any, Protocol, cast
 import httpx
 from ollama import Client, ResponseError
 
+from app.prompt import SYSTEM_SPLIT
 from app.translate import FatalLlmError, Llm
 
 TEMPERATURE = 0.1
@@ -41,13 +42,21 @@ def make_llm(client: OllamaClient, model: str, host: str) -> Llm:
     return llm
 
 
+def _messages(prompt: str) -> list[dict[str, str]]:
+    """Split ``build_prompt`` output into a system and a user message."""
+    system, split, user = prompt.partition(SYSTEM_SPLIT)
+    if not split:
+        return [{"role": "user", "content": prompt}]
+    return [{"role": "system", "content": system}, {"role": "user", "content": user}]
+
+
 def _chat(client: OllamaClient, model: str, host: str, prompt: str) -> str:
     """One request; a server or connection error is retried once (e.g. model evicted)."""
     for attempt in (1, 2):
         try:
             resp = client.chat(
                 model=model,
-                messages=[{"role": "user", "content": prompt}],
+                messages=_messages(prompt),
                 think=False,
                 options={"temperature": TEMPERATURE, "num_ctx": NUM_CTX},
             )

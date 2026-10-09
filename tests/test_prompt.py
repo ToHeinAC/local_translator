@@ -38,3 +38,15 @@ def test_strict_prompt_can_demand_a_full_translation() -> None:
     assert "Translate every line completely" not in build_prompt(
         "[[1]] x", "de", "en", [], None, strict=True
     )
+
+
+def test_rules_go_to_the_system_part_and_the_target_is_repeated_before_the_text() -> None:
+    from app.prompt import BODY_MARKER, SYSTEM_SPLIT
+
+    prompt = build_prompt("[[1]] x", "en", "de", [A], ("Before", "Vorher"))
+    system, user = prompt.split(SYSTEM_SPLIT)
+    assert "from English to German" in system
+    assert "[[1]] <line 1 in German>" in system
+    assert "Mandatory terminology" not in system
+    assert "Mandatory terminology" in user
+    assert user.endswith("into German. Answer only in German.\n" + BODY_MARKER + "[[1]] x")

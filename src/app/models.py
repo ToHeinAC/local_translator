@@ -38,7 +38,9 @@ def resolve_default(value: str | None) -> tuple[str, str | None]:
 
 def annotate(installed: set[str]) -> list[ModelStatus]:
     """Mark each registry model as installed or not, with the ``ollama pull`` hint."""
+    present = {tag.lower() for tag in installed}  # Ollama tags are case-insensitive
     return [
-        ModelStatus(m, m.tag in installed, "" if m.tag in installed else f"ollama pull {m.tag}")
+        ModelStatus(m, ok, "" if ok else f"ollama pull {m.tag}")
         for m in MODELS
+        for ok in [m.tag.lower() in present]
     ]

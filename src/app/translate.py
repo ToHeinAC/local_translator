@@ -86,8 +86,19 @@ class _Job:
         except Exception:
             outs = [None] * len(segment)
         self._record(segment, matches, outs)
+        return self._next_context(segment, outs, context)
+
+    def _next_context(
+        self, segment: list[Unit], outs: list[str | None], context: Context | None
+    ) -> Context | None:
+        """The last unit as context, unless it (or its whole segment) is an echo or failed."""
+        good = [o for o in outs if o is not None]
         last = outs[-1]
-        return (segment[-1].text, last) if last is not None else context
+        if last is None or self._echoed(segment[-1:], [last]):
+            return context
+        if len(good) == len(outs) and self._echoed(segment, good):
+            return context  # never let an echo prime the next segment
+        return (segment[-1].text, last)
 
     def _fallback(
         self, segment: list[Unit], matches: list[list[Match]], context: Context | None
@@ -140,10 +151,11 @@ class _Job:
         return decode_segment(self.llm(prompt), enc)
 
     def _echoed(self, segment: list[Unit], outs: list[str]) -> bool:
-        g = self.glossary
-        return any(
-            looks_untranslated(u.text, o, g.source_lang, g.target_lang)
-            for u, o in zip(segment, outs, strict=True)
+        """True if any long unit, or the segment as a whole, still reads as the source language."""
+        src, tgt = self.glossary.source_lang, self.glossary.target_lang
+        whole = looks_untranslated(" ".join(u.text for u in segment), " ".join(outs), src, tgt)
+        return whole or any(
+            looks_untranslated(u.text, o, src, tgt) for u, o in zip(segment, outs, strict=True)
         )
 
     def _missed(self, matches: list[list[Match]], outs: list[str]) -> list[Entry]:

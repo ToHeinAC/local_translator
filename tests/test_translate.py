@@ -219,3 +219,63 @@ def test_short_unchanged_text_is_not_treated_as_an_echo() -> None:
     result = translate_document([Block(Kind.PARAGRAPH, "Siehe Anlage 3")], EMPTY, fake)
     assert result.failed == ()
     assert len(fake.prompts) == 1
+
+
+ECHO_DE = "Der schnelle braune Fuchs springt über den faulen Hund am Flussufer."
+NEXT_DE = "Die Anlage wird nach der Prüfung durch den Sachverständigen freigegeben."
+NEXT_EN = "The plant is released after the inspection by the expert."
+
+
+def test_an_echoed_answer_is_never_passed_on_as_context() -> None:
+    def handler(prompt: str) -> str:
+        return body(prompt) if ECHO_DE in body(prompt) else f"[[1]] {NEXT_EN}"
+
+    fake = Fake(handler)
+    doc = [Block(Kind.PARAGRAPH, ECHO_DE), Block(Kind.PARAGRAPH, NEXT_DE)]
+    translate_document(doc, EMPTY, fake, segment_chars=80)
+    later = [p for p in fake.prompts if NEXT_DE in body(p)]
+    assert later
+    assert all("Translation: Der schnelle" not in p for p in later)
+
+
+def test_good_context_survives_an_echoed_segment() -> None:
+    first = "Die Pumpe wurde im letzten Jahr vollständig überholt und geprüft."
+    answers = {first: "[[1]] The pump was fully overhauled and tested last year."}
+
+    def handler(prompt: str) -> str:
+        text = body(prompt)
+        for source, answer in answers.items():
+            if source in text:
+                return answer
+        return text if ECHO_DE in text else f"[[1]] {NEXT_EN}"
+
+    fake = Fake(handler)
+    doc = [Block(Kind.PARAGRAPH, t) for t in (first, ECHO_DE, NEXT_DE)]
+    translate_document(doc, EMPTY, fake, segment_chars=80)
+    last = next(p for p in fake.prompts if NEXT_DE in body(p))
+    assert "Translation: The pump was fully overhauled" in last
+
+
+def test_short_lines_echoed_together_trigger_the_retry() -> None:
+    lines = ["Die Anlage wird geprüft", "Der Bericht ist fertig", "Die Freigabe fehlt noch"]
+    fake = Fake(lambda prompt: body(prompt))
+    translate_document([Block(Kind.LIST_ITEM, t) for t in lines], EMPTY, fake)
+    assert len(fake.prompts) >= 2
+    assert "Translate every line completely into English" in fake.prompts[1]
+
+
+def test_echoed_segment_ending_in_a_short_heading_is_not_used_as_context() -> None:
+    doc = [
+        Block(Kind.PARAGRAPH, ECHO_DE),
+        Block(Kind.HEADING, "Ergebnisse", level=2),
+        Block(Kind.PARAGRAPH, NEXT_DE),
+    ]
+
+    def handler(prompt: str) -> str:
+        text = body(prompt)
+        return f"[[1]] {NEXT_EN}" if NEXT_DE in text else text
+
+    fake = Fake(handler)
+    translate_document(doc, EMPTY, fake, segment_chars=100)
+    last = next(p for p in fake.prompts if NEXT_DE in body(p))
+    assert "Context" not in last

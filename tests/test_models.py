@@ -28,3 +28,8 @@ def test_annotate_marks_missing_models_with_pull_hint() -> None:
     assert [s.installed for s in statuses] == [False, True, False]
     assert statuses[0].pull_hint == "ollama pull gemma4:e2b"
     assert statuses[1].pull_hint == ""
+
+
+def test_annotate_ignores_tag_case() -> None:
+    statuses = annotate({"Qwen3:14b", "GEMMA4:E4B"})
+    assert [s.installed for s in statuses] == [False, True, True]

@@ -6,6 +6,7 @@ from app.glossary import Entry
 
 STRICT_MARKER = "IMPORTANT: the previous answer was rejected."
 BODY_MARKER = "Text to translate:\n"
+SYSTEM_SPLIT = "\n\n<<<END OF SYSTEM>>>\n\n"  # llm_ollama sends the part before as system message
 
 _LANGUAGES = {
     "de": "German",
@@ -22,8 +23,8 @@ SUPPORTED_LANGUAGES = tuple(_LANGUAGES)
 
 _RULES = """\
 Rules:
-- Return every line with its original ID marker, for example "[[1]] ...". Output nothing else: \
-no comments, no preamble.
+- Return every line with its original ID marker, exactly once. Output nothing else: no source \
+text, no comments, no preamble.
 - Keep Markdown inline formatting (**bold**, *italic*, [links](...)) in place.
 - Keep tags such as <b>…</b>, <i>…</i>, <u>…</u> and <a1>…</a1> in place around the matching \
 translated words.
@@ -45,10 +46,7 @@ def build_prompt(
     """Assemble the translation prompt for one segment (``body`` = numbered lines)."""
     src = _LANGUAGES.get(source_lang, source_lang)
     tgt = _LANGUAGES.get(target_lang, target_lang)
-    parts = [
-        f"You are a professional translator. Translate the numbered lines from {src} to {tgt}."
-    ]
-    parts.append(_RULES)
+    parts: list[str] = []
     if entries:
         parts.append(_glossary_section(entries))
     if strict:
@@ -60,8 +58,16 @@ def build_prompt(
             f"Context (already translated, do not repeat it):\nSource: {context[0]}\n"
             f"Translation: {context[1]}"
         )
-    parts.append(BODY_MARKER + body)
-    return "\n\n".join(parts)
+    reminder = f"Translate every numbered line into {tgt}. Answer only in {tgt}.\n"
+    parts.append(reminder + BODY_MARKER + body)
+    return _system(src, tgt) + SYSTEM_SPLIT + "\n\n".join(parts)
+
+
+def _system(src: str, tgt: str) -> str:
+    return (
+        f"You are a professional translator. Translate the numbered lines from {src} to {tgt}."
+        f"\n\n{_RULES}\n\nAnswer format:\n[[1]] <line 1 in {tgt}>\n[[2]] <line 2 in {tgt}>"
+    )
 
 
 def _glossary_section(entries: Sequence[Entry]) -> str:

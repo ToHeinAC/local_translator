@@ -1,4 +1,14 @@
-from app.benchmark import TERMS, BenchResult, format_table, make_fixture, run_benchmark
+import re
+from pathlib import Path
+
+from app.benchmark import (
+    TERMS,
+    BenchResult,
+    format_table,
+    load_document,
+    make_fixture,
+    run_benchmark,
+)
 from app.document import Kind
 from app.prompt import BODY_MARKER
 
@@ -50,8 +60,33 @@ def test_echo_misses_every_term() -> None:
 
 
 def test_format_table_lists_each_model() -> None:
-    rows = [BenchResult("a", 61.0, 4, 10, 1, 0), BenchResult("b", 5.0, 4, 10, 0, 0)]
+    rows = [BenchResult("a", 61.0, 4, 10, 1, 0, 6, 2), BenchResult("b", 5.0, 4, 10, 0, 0, 4, 0)]
     table = format_table(rows)
-    assert "| a | 61 s |" in table
+    assert "| a | 61 s | 4 | 6 |" in table
+    assert "| 2 |" in table
     assert "90%" in table
     assert "100%" in table
+
+
+def _english(prompt: str) -> str:
+    lines = re.findall(r"^\[\[(\d+)\]\]", prompt.split(BODY_MARKER, 1)[1], re.MULTILINE)
+    return "\n".join(f"[[{n}]] The plant is inspected by the authority every year." for n in lines)
+
+
+def test_untranslated_texts_and_calls_are_counted() -> None:
+    doc, glossary = make_fixture(pages=1)
+    echo = run_benchmark("m", _echo, doc, glossary)
+    assert echo.untranslated > 0
+    assert echo.calls > echo.segments  # echoes trigger retries
+    english = run_benchmark("m", _english, doc, glossary)
+    assert english.untranslated == 0
+
+
+def test_document_benchmark_reads_a_file(tmp_path: Path) -> None:
+    path = tmp_path / "doc.md"
+    path.write_text("# Titel\n\n" + " ".join(["Die Anlage wird jedes Jahr geprüft."] * 5) + "\n")
+    doc, glossary = load_document(str(path), "de", "en")
+    assert len(doc) == 2
+    assert (glossary.source_lang, glossary.target_lang, glossary.entries) == ("de", "en", ())
+    result = run_benchmark("m", _english, doc, glossary, segment_chars=500)
+    assert result.untranslated == 0

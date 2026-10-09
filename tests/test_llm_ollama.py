@@ -123,3 +123,14 @@ def test_unload_all_returns_empty_when_ps_fails() -> None:
     client = StubClient()
     client.loaded = ConnectionError("refused")
     assert unload_all(client) == []
+
+
+def test_system_part_of_the_prompt_becomes_a_system_message() -> None:
+    from app.prompt import SYSTEM_SPLIT
+
+    client = StubClient(["ok"])
+    make_llm(client, "m", HOST)(f"rules{SYSTEM_SPLIT}text")
+    assert client.chat_calls[0]["messages"] == [
+        {"role": "system", "content": "rules"},
+        {"role": "user", "content": "text"},
+    ]
