@@ -1,0 +1,176 @@
+"""Translation orchestration with an injected ``llm(prompt) -> str`` (pure, no I/O)."""
+
+from collections.abc import Callable
+from dataclasses import dataclass, replace
+
+from app.document import Block, Document, Kind
+from app.glossary import Entry, Glossary, Match
+from app.prompt import build_prompt
+from app.segment import Cell, Encoded, Unit, decode_segment, encode_segment, pack, plan_units
+
+Llm = Callable[[str], str]
+Context = tuple[str, str]  # (source, translation) of the previous segment's last unit
+Key = tuple[int, Cell | None]
+
+
+@dataclass(frozen=True)
+class TermMiss:
+    block: int
+    excerpt: str
+    entry: Entry
+
+
+@dataclass(frozen=True)
+class TranslationResult:
+    document: Document
+    misses: list[TermMiss]
+    failed: tuple[int, ...]  # block indices left in the source language
+    hits: int  # glossary entries found in the source, per unit
+    cancelled: bool
+
+    @property
+    def enforced(self) -> int:
+        return self.hits - len(self.misses)
+
+
+def translate_document(
+    doc: Document,
+    glossary: Glossary,
+    llm: Llm,
+    *,
+    progress: Callable[[int, int], None] | None = None,
+    cancel: Callable[[], bool] | None = None,
+    segment_chars: int = 3000,
+) -> TranslationResult:
+    """Translate all translatable text; structure is kept because only block text changes."""
+    units = plan_units(doc, segment_chars)
+    segments = pack(units, segment_chars)
+    job = _Job(glossary, llm)
+    context: Context | None = None
+    cancelled = False
+    for n, segment in enumerate(segments, start=1):
+        context = job.run(segment, context)
+        if progress:
+            progress(n, len(segments))
+        if n < len(segments) and cancel and cancel():
+            cancelled = True
+            break
+    translated = _translations(units, job.done, job.failed)
+    failed = tuple(sorted({block for block, _ in job.failed}))
+    return TranslationResult(_assemble(doc, translated), job.misses, failed, job.hits, cancelled)
+
+
+class _Job:
+    def __init__(self, glossary: Glossary, llm: Llm) -> None:
+        self.glossary = glossary
+        self.llm = llm
+        self.done: dict[int, str] = {}
+        self.failed: set[Key] = set()
+        self.misses: list[TermMiss] = []
+        self.hits = 0
+
+    def run(self, segment: list[Unit], context: Context | None) -> Context | None:
+        matches = [self.glossary.match(u.text) for u in segment]
+        self.hits += sum(len(m) for m in matches)
+        outs: list[str | None]
+        try:
+            group = self._group(segment, matches, context)
+            outs = list(group) if group is not None else self._fallback(segment, matches, context)
+        except Exception:
+            outs = [None] * len(segment)
+        self._record(segment, matches, outs)
+        last = outs[-1]
+        return (segment[-1].text, last) if last is not None else context
+
+    def _fallback(
+        self, segment: list[Unit], matches: list[list[Match]], context: Context | None
+    ) -> list[str | None]:
+        outs: list[str | None] = []
+        for unit, found in zip(segment, matches, strict=True):
+            try:
+                single = self._group([unit], [found], context)
+            except Exception:
+                single = None
+            outs.append(single[0] if single else None)
+        return outs
+
+    def _group(
+        self, segment: list[Unit], matches: list[list[Match]], context: Context | None
+    ) -> list[str] | None:
+        """Translate one segment; at most one retry. None if the answer stays unusable."""
+        enc = encode_segment(segment)
+        entries = _entries(matches)
+        first = self._call(enc, entries, context, False, [])
+        missed = self._missed(matches, first) if first is not None else []
+        if first is not None and not missed:
+            return first
+        retry = self._call(enc, entries, context, True, missed)
+        return retry if retry is not None else first
+
+    def _call(
+        self,
+        enc: Encoded,
+        entries: list[Entry],
+        context: Context | None,
+        strict: bool,
+        missed: list[Entry],
+    ) -> list[str] | None:
+        g = self.glossary
+        prompt = build_prompt(
+            enc.body, g.source_lang, g.target_lang, entries, context, strict=strict, missed=missed
+        )
+        return decode_segment(self.llm(prompt), enc)
+
+    def _missed(self, matches: list[list[Match]], outs: list[str]) -> list[Entry]:
+        missed: list[Entry] = []
+        for found, text in zip(matches, outs, strict=True):
+            missed += [e for e in self.glossary.verify(text, found) if e not in missed]
+        return missed
+
+    def _record(
+        self, segment: list[Unit], matches: list[list[Match]], outs: list[str | None]
+    ) -> None:
+        for unit, found, out in zip(segment, matches, outs, strict=True):
+            if out is None:
+                self.failed.add((unit.block, unit.cell))
+                continue
+            self.done[unit.idx] = out
+            for entry in self.glossary.verify(out, found):
+                self.misses.append(TermMiss(unit.block, unit.text[:80], entry))
+
+
+def _entries(matches: list[list[Match]]) -> list[Entry]:
+    entries: list[Entry] = []
+    for found in matches:
+        entries += [m.entry for m in found if m.entry not in entries]
+    return entries
+
+
+def _translations(units: list[Unit], done: dict[int, str], failed: set[Key]) -> dict[Key, str]:
+    """Join the pieces of each block/cell; keys with any untranslated piece are left out."""
+    groups: dict[Key, list[Unit]] = {}
+    for unit in units:
+        groups.setdefault((unit.block, unit.cell), []).append(unit)
+    return {
+        key: " ".join(done[u.idx] for u in group)
+        for key, group in groups.items()
+        if key not in failed and all(u.idx in done for u in group)
+    }
+
+
+def _assemble(doc: Document, translated: dict[Key, str]) -> Document:
+    out: Document = []
+    for bi, block in enumerate(doc):
+        if block.kind is Kind.TABLE:
+            rows = tuple(
+                tuple(translated.get((bi, (r, c)), text) for c, text in enumerate(row))
+                for r, row in enumerate(block.rows)
+            )
+            out.append(replace(block, rows=rows))
+        else:
+            out.append(_text_block(block, translated.get((bi, None))))
+    return out
+
+
+def _text_block(block: Block, text: str | None) -> Block:
+    return block if text is None else replace(block, text=text)

@@ -69,3 +69,20 @@ The gate itself is defined once, in `.pre-commit-config.yaml`. The Stop hook and
   Longer terms claim their text span first. Verification needs the target at least as often
   as the source matched.
 - A glossary with 0 usable entries is not an error; the UI warns (M8).
+
+## Translation core (`segment.py`, `prompt.py`, `translate.py`)
+
+- **Units:** each translatable block, table cell or sentence group (for text longer than
+  `segment_chars`) is one unit; units without letters are skipped. Units are packed into
+  segments of at most `segment_chars`.
+- **Per segment:** call 1; if the answer is unusable (ID or protected token missing, extra or
+  duplicated) or a glossary term is missing, one strict retry. If the answer stays unusable,
+  each unit is translated alone (with the same single retry); a unit that still fails stays in
+  the source language and its block is listed in `TranslationResult.failed`. An exception from
+  `llm` marks the whole segment failed without retry (network retries belong to the M5 adapter).
+- **Term check is per unit**, so a miss is attributed to its block (needed for the DOCX
+  highlight in M7). `hits` counts matched entries per unit; `enforced = hits - misses`.
+- **Progress** is `progress(done, total)` so the UI can show "Abschnitt n von N"; cancel is
+  checked after each segment.
+- **Not in M3:** the FR-6a skip of paragraphs already in the target language (needs
+  `langdetect`; planned with M7).

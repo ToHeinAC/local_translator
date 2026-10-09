@@ -20,7 +20,7 @@ One row per PRD milestone. Status: `planned`, `in progress`, `done`.
 | 0 | Blueprint skeleton (no PRD milestone) | done | full gate green |
 | 1 | M1: Document model and Markdown round trip | done | `tests/test_document.py`, full gate green |
 | 2 | M2: Glossary | done | `tests/test_glossary.py`, `tests/test_glossary_readers.py`, full gate green |
-| 3 | M3: Translation core with fake LLM | planned | |
+| 3 | M3: Translation core with fake LLM | done | `tests/test_segment.py`, `tests/test_prompt.py`, `tests/test_translate.py`, full gate green |
 | 4 | M4: Input readers | planned | |
 | 5 | M5: Ollama adapter and model registry | planned | |
 | 6 | M6: Output writers | planned | |
@@ -36,6 +36,9 @@ One row per PRD milestone. Status: `planned`, `in progress`, `done`.
 | `src/app/document.py` | Block model, Markdown parse/write, `same_structure` (M1). |
 | `src/app/glossary.py` | Glossary entries per language pair, match, verify, template (M2). |
 | `src/app/readers.py` | Input adapters; so far csv/tsv/xlsx/md glossary rows (M2). |
+| `src/app/segment.py` | Units, packing, protected spans, `[[n]]` wire format (M3). |
+| `src/app/prompt.py` | English prompt builder (M3). |
+| `src/app/translate.py` | `translate_document` with injected `llm`, retries, progress, cancel (M3). |
 | `src/app/core.py` | Example of pure logic (`slugify`). Replace it with your own. |
 | `tests/conftest.py` | Shared fixtures; blocks network access in all tests. |
 | `tests/test_code_rules.py` | Enforces functions ≤ 50 lines in `src/`, `tests/`, `.claude/hooks/`. |
