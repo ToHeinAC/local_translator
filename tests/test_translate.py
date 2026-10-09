@@ -3,7 +3,7 @@ import pytest
 from app.document import Block, Document, Kind, same_structure
 from app.glossary import Glossary, build_glossary
 from app.prompt import BODY_MARKER, STRICT_MARKER
-from app.translate import translate_document
+from app.translate import FatalLlmError, translate_document
 
 EMPTY = Glossary("de", "en", ())
 DOC: Document = [
@@ -182,3 +182,11 @@ def test_previous_segment_is_passed_as_context() -> None:
     translate_document(doc, EMPTY, fake, segment_chars=5)
     assert "Source: Eins\nTranslation: EINS" in fake.prompts[1]
     assert "Context" not in fake.prompts[0]
+
+
+def test_fatal_llm_error_aborts_the_job() -> None:
+    def handler(_prompt: str) -> str:
+        raise FatalLlmError("host down")
+
+    with pytest.raises(FatalLlmError):
+        translate_document(DOC[:1], EMPTY, Fake(handler))

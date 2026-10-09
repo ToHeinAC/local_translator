@@ -13,6 +13,10 @@ Context = tuple[str, str]  # (source, translation) of the previous segment's las
 Key = tuple[int, Cell | None]
 
 
+class FatalLlmError(RuntimeError):
+    """An LLM failure that must abort the whole job (e.g. host unreachable), not one segment."""
+
+
 @dataclass(frozen=True)
 class TermMiss:
     block: int
@@ -76,6 +80,8 @@ class _Job:
         try:
             group = self._group(segment, matches, context)
             outs = list(group) if group is not None else self._fallback(segment, matches, context)
+        except FatalLlmError:
+            raise
         except Exception:
             outs = [None] * len(segment)
         self._record(segment, matches, outs)
@@ -89,6 +95,8 @@ class _Job:
         for unit, found in zip(segment, matches, strict=True):
             try:
                 single = self._group([unit], [found], context)
+            except FatalLlmError:
+                raise
             except Exception:
                 single = None
             outs.append(single[0] if single else None)

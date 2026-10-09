@@ -105,3 +105,13 @@ The gate itself is defined once, in `.pre-commit-config.yaml`. The Stop hook and
   or lists are recovered.
 - **Plain text:** blank-line separated paragraphs; inline Markdown characters are not escaped.
 - `pillow` (HPND, permissive) arrives as a dependency of reportlab.
+
+## Ollama adapter (`models.py`, `llm_ollama.py`, `benchmark.py`)
+
+- `make_llm(client, model, host)` returns the `llm(prompt) -> str` that `translate_document`
+  expects. One `ResponseError` or `ConnectionError` is retried once; a second `ConnectionError`
+  raises `OllamaUnavailableError(host)`. HTTP timeouts become the builtin `TimeoutError`.
+- `OllamaUnavailableError` derives from `FatalLlmError` (defined in `translate.py`), which aborts
+  the whole job instead of marking one segment failed (NFR-7).
+- The client is typed by a small protocol so tests pass a stub; there is no network in tests.
+- Results of the benchmark are in [benchmark.md](benchmark.md).
