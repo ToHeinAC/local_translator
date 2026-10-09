@@ -56,3 +56,16 @@ The gate itself is defined once, in `.pre-commit-config.yaml`. The Stop hook and
   top-level blocks; quote paragraphs become separate `quote` blocks and nested quotes are
   flattened; `---` maps to `page_break`; two adjacent lists of the same type merge on write.
 - Empty or image-only input raises `EmptyDocumentError("Dokument enthält keinen Text")`.
+
+## Glossary (`src/app/glossary.py`, `src/app/readers.py`)
+
+- `read_glossary_rows` (adapter) turns any of the four formats into rows; `build_glossary`
+  (pure) filters them for one language pair and reports issues with spreadsheet row numbers
+  (header = row 1).
+- **Duplicates:** identical source and target twice keeps the first and reports the rest. Same
+  source with different targets is a conflict: all its rows are dropped and reported.
+- **Matching:** suffixes `e en er es n s` apply to source and target terms in every language;
+  matching a term as the end of a compound noun applies only when the language is `de`.
+  Longer terms claim their text span first. Verification needs the target at least as often
+  as the source matched.
+- A glossary with 0 usable entries is not an error; the UI warns (M8).

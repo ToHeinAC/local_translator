@@ -71,6 +71,11 @@ class _Parser:
 
     def _token(self, tok: Token, nxt: Token) -> None:
         kind = tok.type
+        if not self._container(kind):
+            self._leaf(tok, nxt)
+
+    def _container(self, kind: str) -> bool:
+        """Track list/quote nesting; True if ``kind`` was such a token."""
         if kind in ("bullet_list_open", "ordered_list_open"):
             self._lists.append(kind == "ordered_list_open")
         elif kind in ("bullet_list_close", "ordered_list_close"):
@@ -81,7 +86,13 @@ class _Parser:
             self._quote += 1
         elif kind == "blockquote_close":
             self._quote -= 1
-        elif kind == "heading_open":
+        else:
+            return False
+        return True
+
+    def _leaf(self, tok: Token, nxt: Token) -> None:
+        kind = tok.type
+        if kind == "heading_open":
             self._blocks.append(Block(Kind.HEADING, nxt.content, level=int(tok.tag[1])))
         elif kind == "paragraph_open":
             self._paragraph(nxt.content)
@@ -98,9 +109,7 @@ class _Parser:
     def _paragraph(self, text: str) -> None:
         if self._lists and self._item_open:
             self._item_open = False
-            block = Block(
-                Kind.LIST_ITEM, text, depth=len(self._lists) - 1, ordered=self._lists[-1]
-            )
+            block = Block(Kind.LIST_ITEM, text, depth=len(self._lists) - 1, ordered=self._lists[-1])
         elif self._quote:
             block = Block(Kind.QUOTE, text)
         elif m := _IMAGE_ONLY.fullmatch(text.strip()):
