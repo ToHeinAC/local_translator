@@ -82,3 +82,11 @@ def unload_all(client: OllamaClient) -> list[str]:
         except Exception:
             continue
     return loaded
+
+
+def loaded_models(client: OllamaClient) -> list[tuple[str, int]]:
+    """Models currently loaded as ``(name, bytes in VRAM)``; empty if the host is unreachable."""
+    try:
+        return [(str(m.model), int(m.size_vram)) for m in client.ps().models]
+    except Exception:
+        return []

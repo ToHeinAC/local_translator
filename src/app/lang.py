@@ -7,6 +7,8 @@
 from langdetect import DetectorFactory, detect
 from langdetect.lang_detect_exception import LangDetectException
 
+from app.prompt import SUPPORTED_LANGUAGES
+
 DetectorFactory.seed = 0
 MIN_CHARS = 40
 
@@ -19,3 +21,12 @@ def is_in_language(text: str, lang: str) -> bool:
         return str(detect(text)).split("-")[0] == lang
     except LangDetectException:
         return False
+
+
+def detect_language(text: str) -> str | None:
+    """The detected code if it is one of the supported languages, else None."""
+    try:
+        code = str(detect(text[:2000])).split("-")[0]
+    except LangDetectException:
+        return None
+    return code if code in SUPPORTED_LANGUAGES else None

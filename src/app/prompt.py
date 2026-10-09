@@ -18,6 +18,7 @@ _LANGUAGES = {
     "pl": "Polish",
     "cs": "Czech",
 }
+SUPPORTED_LANGUAGES = tuple(_LANGUAGES)
 
 _RULES = """\
 Rules:

@@ -140,6 +140,26 @@ The gate itself is defined once, in `.pre-commit-config.yaml`. The Stop hook and
 - **Untouched and reported:** footnotes, endnotes, comments, text boxes. Only the core-property
   language changes.
 
+## UI (`ui.py`, `pipeline.py`, `runner.py`)
+
+- `ui.py` only wires widgets; logic lives in `pipeline.py` (pure, in memory) and is tested
+  without Streamlit. `AppTest` drives the script with a stubbed `llm_ollama`.
+- **Job:** `run_job` sends `.docx` through `translate_docx`, everything else through
+  `read_document` + `translate_document` + `write_docx`. MD and PDF are always built from the
+  translated `Document`. `report_csv` lists term misses, failed blocks and untouched features.
+- **Background run:** `JobHandle` runs the job on a daemon thread; the thread never calls
+  Streamlit. A `st.fragment(run_every=1)` polls it for the progress bar and the cancel button
+  and triggers a full rerun when it finishes. The start button is disabled while a handle exists,
+  which prevents a second job. Uploads are held in memory only, so there is no temp dir to clean.
+- **Session state:** `result` survives reruns; a new upload (name, size, file id) cancels the
+  old job and drops result, error and cached file info. Logout clears everything except the GUI
+  language.
+- **Login:** `auth.ensure_seeded` creates `data/users.json` once from `SEED_PW_*`; an empty or
+  unreadable store denies everyone. "App beenden" (admins from `ADMIN_USERS`) sends SIGTERM to
+  its own PID after a confirmation.
+- **Admin options:** show loaded models with their VRAM (Ollama `ps`) and "VRAM leeren"
+  (`keep_alive=0`). Unlike the summarizer there is no GPU pinning.
+
 ## Ollama adapter (`models.py`, `llm_ollama.py`, `benchmark.py`)
 
 - `make_llm(client, model, host)` returns the `llm(prompt) -> str` that `translate_document`

@@ -28,3 +28,10 @@
 - Source: https://dejavu-fonts.github.io/ (copied from matplotlib's bundled copy)
 - License: Bitstream Vera / DejaVu license (permissive, free to use, copy, modify and redistribute);
   full text in `src/app/fonts/LICENSE_DEJAVU`.
+
+## local_summarizer theme
+
+- Used in: `src/app/theme.py` (palette and CSS), `.streamlit/config.toml` (theme colours).
+- Source: the sibling project `local_summarizer`, `src/theme.py` at commit `68e1b01`, itself ported
+  from ToHeinAC/KB_BS_local-wiki-he.
+- License: Apache-2.0 (same owner; compatible with this project's license).

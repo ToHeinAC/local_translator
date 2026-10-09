@@ -1,0 +1,16 @@
+[theme]
+primaryColor             = "#234637"
+backgroundColor          = "#f6f7f2"
+secondaryBackgroundColor = "#eaf0ec"
+textColor                = "#1a1f1c"
+font                     = "sans serif"
+
+[server]
+port = 8560
+# Served under https://ai.brenk.com/trns/ by the nginx reverse proxy. This must match the proxy's
+# path, or the app renders blank.
+baseUrlPath = "trns"
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false

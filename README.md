@@ -16,6 +16,14 @@ Codex. The rules are short, and every rule that can be checked is checked by a s
 
 Requirements: [uv](https://docs.astral.sh/uv/) and git. uv installs Python itself.
 
+## Run the translator
+
+1. `cp .env.example .env` and set at least `SEED_PW_HEIN` / `SEED_PW_GAST` (first-run passwords,
+   hashed into `data/users.json`). All keys are optional otherwise; defaults are in
+   `src/app/config.py`.
+2. Pull the models you need, e.g. `ollama pull gemma4:e4b`.
+3. `uv run streamlit run src/app/ui.py`, then open <http://localhost:8560/trns/>.
+
 ## Layout
 
 ```
