@@ -97,7 +97,8 @@ def run_benchmark(
         calls.append(1)
         return llm(prompt)
 
-    segments = len(pack(plan_units(doc, segment_chars), segment_chars))
+    units = plan_units(doc, segment_chars, glossary.target_lang)
+    segments = len(pack(units, segment_chars))
     start = clock()
     result = translate_document(doc, glossary, counted, segment_chars=segment_chars)
     seconds = clock() - start

@@ -4,6 +4,8 @@ import re
 from dataclasses import dataclass
 
 from app.document import Block, Document, Kind
+from app.lang import is_in_language
+from app.run_tags import strip_tags
 
 Cell = tuple[int, int]
 
@@ -15,6 +17,7 @@ _PROTECT = re.compile(
     "|".join(
         [
             r"`[^`\n]+`",
+            r"\[\^[^\]\s]+\]",  # Markdown footnote reference
             r"https?://[^\s)>\]]*[^\s)>\].,;:!?]",
             r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+",
             r"\{[^{}\s]*\}",
@@ -63,14 +66,20 @@ def _texts(block: Block) -> list[tuple[Cell | None, str]]:
     return [(None, block.text)]
 
 
-def plan_units(doc: Document, limit: int) -> list[Unit]:
-    """Flatten translatable text into units in document order; long text is split."""
+def plan_units(doc: Document, limit: int, target_lang: str = "") -> list[Unit]:
+    """Flatten translatable text into units in document order; long text is split.
+
+    Text without letters, and text of 40+ characters already in ``target_lang`` (FR-6a), is left
+    out, so it is copied unchanged.
+    """
     units: list[Unit] = []
     for bi, block in enumerate(doc):
         if not block.translate:
             continue
         for cell, text in _texts(block):
             if not any(ch.isalpha() for ch in text):
+                continue
+            if target_lang and is_in_language(strip_tags(text), target_lang):
                 continue
             pieces = split_sentences(text, limit) if len(text) > limit else [text]
             for pi, piece in enumerate(pieces):
@@ -137,9 +146,20 @@ def _parse_wire(text: str) -> list[tuple[int, str]]:
     return [(i, "\n".join(lines).strip()) for i, lines in pairs]
 
 
+def _last_per_id(pairs: list[tuple[int, str]]) -> list[tuple[int, str]]:
+    """Collapse runs of the same ID to their last line (models sometimes echo the source first)."""
+    out: list[tuple[int, str]] = []
+    for pair in pairs:
+        if out and out[-1][0] == pair[0]:
+            out[-1] = pair
+        else:
+            out.append(pair)
+    return out
+
+
 def decode_segment(raw: str, enc: Encoded) -> list[str] | None:
     """Parse the model answer; None unless every ID and protected token came back."""
-    pairs = _parse_wire(clean_output(raw))
+    pairs = _last_per_id(_parse_wire(clean_output(raw)))
     if [i for i, _ in pairs] != list(range(1, len(enc.units) + 1)):
         return None
     out: list[str] = []

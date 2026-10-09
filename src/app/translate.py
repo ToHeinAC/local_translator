@@ -1,5 +1,6 @@
 """Translation orchestration with an injected ``llm(prompt) -> str`` (pure, no I/O)."""
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 
@@ -48,7 +49,7 @@ def translate_document(
     segment_chars: int = 3000,
 ) -> TranslationResult:
     """Translate all translatable text; structure is kept because only block text changes."""
-    units = plan_units(doc, segment_chars)
+    units = plan_units(doc, segment_chars, glossary.target_lang)
     segments = pack(units, segment_chars)
     job = _Job(glossary, llm)
     context: Context | None = None
@@ -103,16 +104,26 @@ class _Job:
     def _fallback(
         self, segment: list[Unit], matches: list[list[Match]], context: Context | None
     ) -> list[str | None]:
+        """Translate the halves of an unusable segment, recursing down to single units."""
+        if len(segment) == 1:
+            return [None]
+        mid = len(segment) // 2
         outs: list[str | None] = []
-        for unit, found in zip(segment, matches, strict=True):
-            try:
-                single = self._group([unit], [found], context)
-            except FatalLlmError:
-                raise
-            except Exception:
-                single = None
-            outs.append(single[0] if single else None)
+        for part, found in ((segment[:mid], matches[:mid]), (segment[mid:], matches[mid:])):
+            group = self._try_group(part, found, context)
+            outs += list(group) if group is not None else self._fallback(part, found, context)
         return outs
+
+    def _try_group(
+        self, segment: list[Unit], matches: list[list[Match]], context: Context | None
+    ) -> list[str] | None:
+        """``_group``, with any non-fatal error counting as an unusable answer."""
+        try:
+            return self._group(segment, matches, context)
+        except FatalLlmError:
+            raise
+        except Exception:
+            return None
 
     def _group(
         self, segment: list[Unit], matches: list[list[Match]], context: Context | None
@@ -180,7 +191,15 @@ class _Job:
 
 
 def _unchanged(source: str, out: str) -> bool:
-    return len(source) >= MIN_CHARS and " ".join(out.split()) == " ".join(source.split())
+    """The model handed back a long source text that is not just a list of names."""
+    same = " ".join(out.split()) == " ".join(source.split())
+    return len(source) >= MIN_CHARS and same and not _name_like(source)
+
+
+def _name_like(text: str) -> bool:
+    """Mostly capitalised words (names, titles); German nouns alone stay well below 70 %."""
+    words = re.findall(r"[^\W\d_]+", text)
+    return not words or sum(w[0].isupper() for w in words) >= 0.7 * len(words)
 
 
 def _entries(matches: list[list[Match]]) -> list[Entry]:

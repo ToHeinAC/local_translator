@@ -23,7 +23,6 @@ from docx.text.run import Run
 from app.document import Block, Document, DocumentReadError, Kind
 from app.docx_reader import read_docx
 from app.glossary import Glossary
-from app.lang import is_in_language
 from app.run_tags import Piece, decode, encode, strip_tags, tag_counts
 from app.translate import Llm, TranslationResult, translate_document
 
@@ -59,10 +58,6 @@ class _Slot:
     def tagged(self) -> str:
         return encode(self.pieces)
 
-    @property
-    def plain(self) -> str:
-        return "".join(p.text for p in self.pieces)
-
     def template(self, piece: Piece) -> Any:
         """The source run to copy font properties from: same format, else same link, else first."""
         same_link = [r for r, p in zip(self.runs, self.pieces, strict=True) if p.link == piece.link]
@@ -83,10 +78,7 @@ def translate_docx(
     ``misses`` refer to the text groups in document order, not to ``document`` blocks."""
     doc = _load(data)
     slots = [s for p in _paragraphs(doc) for s in _slots(Paragraph(p, doc))]
-    skip = [is_in_language(strip_tags(s.plain), glossary.target_lang) for s in slots]
-    blocks = [
-        Block(Kind.PARAGRAPH, s.tagged, translate=not k) for s, k in zip(slots, skip, strict=True)
-    ]
+    blocks = [Block(Kind.PARAGRAPH, s.tagged) for s in slots]  # FR-6a skip: plan_units
     result = translate_document(
         blocks, glossary, llm, progress=progress, cancel=cancel, segment_chars=segment_chars
     )

@@ -82,10 +82,28 @@ def test_decode_rejects_missing_extra_duplicate_ids_and_missing_token() -> None:
     enc = encode_segment(_units("a `x`", "b"))
     assert decode_segment("[[1]] A ⟦P1⟧", enc) is None
     assert decode_segment("[[1]] A ⟦P1⟧\n[[2]] B\n[[3]] C", enc) is None
-    assert decode_segment("[[1]] A ⟦P1⟧\n[[1]] A ⟦P1⟧\n[[2]] B", enc) is None
+    assert decode_segment("[[1]] A ⟦P1⟧\n[[1]] A\n[[2]] B", enc) is None  # last copy lacks ⟦P1⟧
     assert decode_segment("[[1]] A\n[[2]] B", enc) is None
     assert decode_segment("no markers", enc) is None
 
 
 def test_clean_output_removes_think_tags() -> None:
     assert clean_output("<think>x</think> Hallo ") == "Hallo"
+
+
+def test_footnote_references_are_protected() -> None:
+    protected, spans = protect("Der Bericht[^1] und die Quelle[^note-2] sind belegt.", 1)
+    assert protected == "Der Bericht⟦P1⟧ und die Quelle⟦P2⟧ sind belegt."
+    assert spans == {"⟦P1⟧": "[^1]", "⟦P2⟧": "[^note-2]"}
+
+
+def test_bilingual_answer_keeps_the_last_line_per_id() -> None:
+    enc = encode_segment(_units("How it works", "Next step"))
+    raw = "[[1]] How it works\n[[1]] Wie es funktioniert\n[[2]] Next step\n[[2]] Nächster Schritt"
+    assert decode_segment(raw, enc) == ["Wie es funktioniert", "Nächster Schritt"]
+
+
+def test_ids_out_of_order_or_missing_are_still_rejected() -> None:
+    enc = encode_segment(_units("a", "b"))
+    assert decode_segment("[[2]] B\n[[1]] A", enc) is None
+    assert decode_segment("[[1]] A\n[[1]] A2", enc) is None

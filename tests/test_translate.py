@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from app.document import Block, Document, Kind, same_structure
@@ -279,3 +281,52 @@ def test_echoed_segment_ending_in_a_short_heading_is_not_used_as_context() -> No
     translate_document(doc, EMPTY, fake, segment_chars=100)
     last = next(p for p in fake.prompts if NEXT_DE in body(p))
     assert "Context" not in last
+
+
+def test_unchanged_proper_names_are_not_reported_as_failed() -> None:
+    names = "The Clearing House (JPMorgan, Citi, Bank of America, Wells Fargo)"
+    fake = Fake(lambda prompt: body(prompt))
+    glossary = Glossary("en", "de", ())
+    result = translate_document([Block(Kind.PARAGRAPH, names)], glossary, fake)
+    assert result.failed == ()
+    assert result.document[0].text == names
+
+
+def _english_lines(prompt: str) -> str:
+    ids = re.findall(r"^\[\[(\d+)\]\]", body(prompt), re.MULTILINE)
+    return "\n".join(f"[[{n}]] This is the translated line." for n in ids)
+
+
+def test_broken_segment_is_halved_before_single_lines() -> None:
+    def handler(prompt: str) -> str:
+        lines = re.findall(r"^\[\[\d+\]\]", body(prompt), re.MULTILINE)
+        return "garbage" if len(lines) > 2 else _english_lines(prompt)
+
+    fake = Fake(handler)
+    doc = [Block(Kind.PARAGRAPH, f"Absatz Nummer {i}") for i in range(4)]
+    result = translate_document(doc, EMPTY, fake)
+    assert result.failed == ()
+    assert len(fake.prompts) == 4  # full segment + strict retry, then two halves
+    assert all(b.text == "This is the translated line." for b in result.document)
+
+
+def test_halving_goes_down_to_single_lines_when_needed() -> None:
+    def handler(prompt: str) -> str:
+        lines = re.findall(r"^\[\[\d+\]\]", body(prompt), re.MULTILINE)
+        return "garbage" if len(lines) > 1 else _english_lines(prompt)
+
+    fake = Fake(handler)
+    doc = [Block(Kind.PARAGRAPH, f"Absatz Nummer {i}") for i in range(3)]
+    result = translate_document(doc, EMPTY, fake)
+    assert result.failed == ()
+    assert all(b.text == "This is the translated line." for b in result.document)
+
+
+def test_paragraphs_already_in_the_target_language_are_not_sent() -> None:
+    english = "The quick brown fox jumps over the lazy dog near the river bank."
+    fake = Fake(_english_lines)
+    doc = [Block(Kind.PARAGRAPH, english), Block(Kind.PARAGRAPH, ECHO_DE)]
+    result = translate_document(doc, EMPTY, fake)
+    assert english not in "".join(fake.prompts)
+    assert result.document[0].text == english
+    assert result.document[1].text == "This is the translated line."
