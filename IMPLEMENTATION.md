@@ -75,4 +75,9 @@ One row per PRD milestone. Status: `planned`, `in progress`, `done`.
   here: `nginx -t` (no nginx on the dev machine).
 - M9 acceptance run: the user provides a real DOCX and glossary in `data/acceptance/` (D-14); the
   human check and its result are recorded here afterwards.
-- M8 and M9 have only been tested against a stubbed Ollama, never a real one.
+- Real-model check (2026-10-09, local Ollama, `gemma4:e4b`): a synthetic DOCX (heading, bold and
+  italic runs, bullet, table, header) with a 3-entry glossary took 21 s through `run_job`. Body,
+  table and header were translated, bold/italic stayed on the right words, `5 mSv` was kept,
+  3 of 4 glossary hits were enforced. The miss ("Freigabe" in the heading, still untranslated
+  after the strict retry) was reported and highlighted as designed. The Streamlit UI itself has
+  only run against a stubbed Ollama, and no real document has been checked yet.
