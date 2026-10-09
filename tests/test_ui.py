@@ -280,3 +280,28 @@ def test_ollama_status_is_cached_between_reruns(env: Env) -> None:
     at.run()
     at.run()
     assert len(calls) == 1
+
+
+def test_untranslated_passages_are_listed_and_marked(env: Env) -> None:
+    def partly(prompt: str) -> str:
+        text = body_text(prompt)
+        return "garbage" if "Bleibt" in text else "[[1]] The other paragraph is translated."
+
+    env.llm = partly
+    data = f"{GERMAN}\n\nBleibt in der Quellsprache stehen\n".encode()
+    at = _translate(_upload(env.app(), data=data))
+    warnings = " ".join(w.value for w in at.warning)
+    assert "Bleibt in der Quellsprache stehen" in warnings
+    assert any("⚠️ Bleibt" in m.value for m in at.markdown)
+
+
+def test_disabled_start_button_explains_why(env: Env) -> None:
+    env.installed = set()
+    at = _upload(env.app())
+    assert at.button(key="start_btn").disabled
+    assert any("Modell ist nicht installiert" in c.value for c in at.caption)
+
+
+def test_source_language_shows_what_was_detected(env: Env) -> None:
+    at = _upload(env.app())
+    assert any("Erkannt: Deutsch" in c.value for c in at.caption)

@@ -6,7 +6,14 @@ from docx import Document as new_docx
 
 from app.glossary import Glossary, build_glossary
 from app.lang import detect_language
-from app.pipeline import JobResult, inspect_upload, report_csv, run_job
+from app.pipeline import (
+    JobResult,
+    failed_excerpts,
+    inspect_upload,
+    preview_markdown,
+    report_csv,
+    run_job,
+)
 from app.prompt import BODY_MARKER
 
 EMPTY = Glossary("de", "en", ())
@@ -100,3 +107,21 @@ def test_inspect_upload_detects_language_and_reports_errors() -> None:
 def test_detect_language_only_returns_supported_codes() -> None:
     assert detect_language(GERMAN) == "de"
     assert detect_language("12345 67890") is None
+
+
+def test_preview_marks_failed_blocks_and_lists_their_excerpts() -> None:
+    def partly(prompt: str) -> str:
+        text = prompt.split(BODY_MARKER, 1)[1]
+        return "garbage" if "Bleibt" in text else text.upper()
+
+    result = run_job("a.md", b"# Titel\n\nBleibt so\n\nWird gross\n", EMPTY, partly, user="x")
+    assert failed_excerpts(result) == ["Bleibt so"]
+    preview = preview_markdown(result)
+    assert "⚠️ Bleibt so" in preview
+    assert "WIRD GROSS" in preview
+    assert "⚠️" not in result.md.decode()  # downloads stay clean
+
+
+def test_preview_escapes_dollar_signs() -> None:
+    result = _job("a.md", b"Kosten 700 $ und 900 $\n")
+    assert r"700 \$ UND 900 \$" in preview_markdown(result)

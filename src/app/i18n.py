@@ -81,16 +81,11 @@ STRINGS: dict[str, dict[str, str]] = {
     "document_label": {"de": "Dokument", "en": "Document"},
     "glossary_caption": {"de": "GLOSSAR (OPTIONAL)", "en": "GLOSSARY (OPTIONAL)"},
     "glossary_label": {"de": "Glossar", "en": "Glossary"},
-    "glossary_template": {
-        "de": "Glossar-Vorlage herunterladen",
-        "en": "Download glossary template",
-    },
+    "glossary_template": {"de": "Glossar-Vorlage (CSV)", "en": "Glossary template (CSV)"},
+    "glossary_template_xlsx": {"de": "Glossar-Vorlage (Excel)", "en": "Glossary template (Excel)"},
     "source_caption": {"de": "QUELLSPRACHE", "en": "SOURCE LANGUAGE"},
     "source_label": {"de": "Quellsprache", "en": "Source language"},
-    "source_detected": {
-        "de": "Erkannte Quellsprache: **{name}**",
-        "en": "Detected source language: **{name}**",
-    },
+    "source_detected": {"de": "Erkannt: {name}", "en": "Detected: {name}"},
     "source_unknown": {
         "de": "Quellsprache nicht erkannt; bitte prüfen.",
         "en": "Source language not detected; please check.",
@@ -123,6 +118,19 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "The file is larger than {mb} MB.",
     },
     "read_error": {"de": "Datei nicht lesbar: {error}", "en": "Cannot read file: {error}"},
+    "reason_busy": {"de": "Eine Übersetzung läuft bereits.", "en": "A translation is running."},
+    "reason_model": {
+        "de": "Das gewählte Modell ist nicht installiert (siehe Hinweis oben).",
+        "en": "The selected model is not installed (see the note above).",
+    },
+    "reason_glossary": {
+        "de": "Das Glossar kann nicht gelesen werden.",
+        "en": "The glossary cannot be read.",
+    },
+    "reason_same": {
+        "de": "Quell- und Zielsprache sind gleich.",
+        "en": "Source and target language are the same.",
+    },
     # job
     "translate_button": {"de": "Übersetzen", "en": "Translate"},
     "cancel_button": {"de": "Abbrechen", "en": "Cancel"},
@@ -155,9 +163,10 @@ STRINGS: dict[str, dict[str, str]] = {
     "col_source": {"de": "Quellbegriff", "en": "Source term"},
     "col_expected": {"de": "Erwartet", "en": "Expected"},
     "failed_blocks": {
-        "de": "{n} Abschnitt(e) blieben in der Quellsprache.",
-        "en": "{n} section(s) stayed in the source language.",
+        "de": "{n} Textstelle(n) blieben in der Quellsprache (in der Vorschau mit ⚠️ markiert):",
+        "en": "{n} passage(s) stayed in the source language (marked ⚠️ in the preview):",
     },
+    "and_more": {"de": "… und {n} weitere (siehe Bericht)", "en": "… and {n} more (see report)"},
     "untouched_features": {
         "de": "Nicht übersetzt (bleibt in der Quellsprache): {features}",
         "en": "Not translated (stays in the source language): {features}",

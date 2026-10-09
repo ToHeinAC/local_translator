@@ -24,15 +24,25 @@ from app.glossary import (
 )
 from app.i18n import DEFAULT_LANG, LANGUAGES, language_name, t
 from app.models import ModelStatus, annotate, resolve_default
-from app.pipeline import JobResult, UploadInfo, inspect_upload, report_csv, run_job
+from app.pipeline import (
+    JobResult,
+    UploadInfo,
+    failed_excerpts,
+    inspect_upload,
+    preview_markdown,
+    report_csv,
+    run_job,
+)
 from app.prompt import SUPPORTED_LANGUAGES
 from app.readers import read_glossary_rows
 from app.runner import JobHandle, Progress
-from app.writers import mime_type, output_name
+from app.writers import glossary_template_xlsx, mime_type, output_name
 
 ACCEPTED = ["docx", "md", "txt", "pdf"]
 GLOSSARY_TYPES = ["csv", "tsv", "xlsx", "md"]
 _GB = 2**30
+_PREVIEW_HEIGHT = 500
+_MAX_LISTED = 10
 
 
 def _stars(n: int) -> str:
@@ -264,7 +274,7 @@ def _start(cfg: Config, upload: Any, status: ModelStatus, glossary: Glossary) ->
             segment_chars=cfg.segment_chars,
         )
 
-    handle = JobHandle(work)
+    handle = JobHandle(work, label=status.info.tag)
     handle.start()
     _state()["job"] = handle
 
@@ -287,6 +297,7 @@ def _job_panel(lang: str) -> None:
         st.rerun()
     if handle.total:
         text = t("progress", lang, done=handle.done, total=handle.total)
+        text += f" · {handle.label} · {handle.elapsed}"
         st.progress(handle.done / handle.total, text=text)
     else:
         st.progress(0.0, text=t("preparing", lang))
@@ -301,19 +312,33 @@ def _show_result(result: JobResult, lang: str) -> None:
     st.subheader(t("result_heading", lang))
     if result.cancelled:
         st.warning(t("cancelled_notice", lang))
-    with st.container(border=True):
-        st.markdown(result.md.decode().replace("$", r"\$"))  # no LaTeX in the preview
-        files = {"md": result.md, "docx": result.docx, "pdf": result.pdf}
-        for col, (ext, data) in zip(st.columns(3), files.items(), strict=True):
-            col.download_button(
-                t(f"download_{ext}", lang),
-                data=data,
-                file_name=output_name(result.stem, result.target, ext),
-                mime=mime_type(ext),
-                key=f"dl_{ext}",
-                use_container_width=True,
-            )
+    _result_notices(result, lang)
+    files = {"md": result.md, "docx": result.docx, "pdf": result.pdf}
+    for col, (ext, data) in zip(st.columns(3), files.items(), strict=True):
+        col.download_button(
+            t(f"download_{ext}", lang),
+            data=data,
+            file_name=output_name(result.stem, result.target, ext),
+            mime=mime_type(ext),
+            key=f"dl_{ext}",
+            use_container_width=True,
+        )
+    with st.container(height=_PREVIEW_HEIGHT, border=True):
+        st.markdown(preview_markdown(result))
     _term_report(result, lang)
+
+
+def _result_notices(result: JobResult, lang: str) -> None:
+    """What stayed in the source language, above the downloads so it cannot be missed."""
+    excerpts = failed_excerpts(result)
+    if excerpts:
+        listed = "\n".join(f"- {e}" for e in excerpts[:_MAX_LISTED])
+        more = len(excerpts) - _MAX_LISTED
+        tail = "\n" + t("and_more", lang, n=more) if more > 0 else ""
+        st.warning(t("failed_blocks", lang, n=len(excerpts)) + "\n\n" + listed + tail)
+    if result.untouched:
+        names = ", ".join(t(f"feature_{f}", lang) for f in result.untouched)
+        st.info(t("untouched_features", lang, features=names))
 
 
 def _term_report(result: JobResult, lang: str) -> None:
@@ -331,11 +356,6 @@ def _term_report(result: JobResult, lang: str) -> None:
                     for m in result.translation.misses
                 ]
             )
-        if result.translation.failed:
-            st.warning(t("failed_blocks", lang, n=len(result.translation.failed)))
-        if result.untouched:
-            names = ", ".join(t(f"feature_{f}", lang) for f in result.untouched)
-            st.info(t("untouched_features", lang, features=names))
         st.download_button(
             t("download_report", lang),
             data=report_csv(result),
@@ -369,6 +389,13 @@ def _main_panel(cfg: Config, lang: str) -> None:
         "text/csv",
         key="dl_template",
     )
+    gloss_col.download_button(
+        t("glossary_template_xlsx", lang),
+        glossary_template_xlsx(),
+        "glossar_vorlage.xlsx",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        key="dl_template_xlsx",
+    )
     if upload is not None:
         _upload_flow(cfg, lang, upload, gloss_upload, status, target)
     _collect_finished_job()
@@ -382,26 +409,41 @@ def _upload_flow(
     if info is None:
         return
     detected = info.language
-    st.markdown(
+    src_col, gloss_col = st.columns(2)
+    source = _language_select(
+        src_col, "source_caption", "source_label", detected or "de", f"src_{key}", lang
+    )
+    src_col.caption(
         t("source_detected", lang, name=language_name(detected, lang))
         if detected
         else t("source_unknown", lang)
     )
-    source = _language_select(
-        st, "source_caption", "source_label", detected or "de", f"src_{key}", lang
-    )
-    glossary = _glossary(gloss_upload, source, target, lang)
-    same = source == target
-    if same:
+    with gloss_col:
+        glossary = _glossary(gloss_upload, source, target, lang)
+    if source == target:
         st.error(t("same_language", lang))
-    busy = "job" in _state()
-    blocked = same or glossary is None or not status.installed or busy
+    reason = _block_reason(source == target, glossary is None, status.installed, lang)
     clicked = st.button(
-        t("translate_button", lang), type="primary", disabled=blocked, key="start_btn"
+        t("translate_button", lang), type="primary", disabled=bool(reason), key="start_btn"
     )
+    if reason:
+        st.caption(reason)
     if clicked and glossary is not None:
         _start(cfg, upload, status, glossary)
         st.rerun()
+
+
+def _block_reason(same: bool, bad_glossary: bool, installed: bool, lang: str) -> str:
+    """Why "Übersetzen" is disabled; empty if it is not."""
+    if "job" in _state():
+        return t("reason_busy", lang)
+    if not installed:
+        return t("reason_model", lang)
+    if bad_glossary:
+        return t("reason_glossary", lang)
+    if same:
+        return t("reason_same", lang)
+    return ""
 
 
 def _outcome(lang: str) -> None:

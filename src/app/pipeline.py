@@ -3,10 +3,10 @@
 import csv
 import io
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
-from app.document import Document, DocumentReadError, EmptyDocumentError
+from app.document import Document, DocumentReadError, EmptyDocumentError, write_markdown
 from app.docx_inplace import translate_docx
 from app.glossary import Glossary
 from app.lang import detect_language
@@ -28,6 +28,7 @@ class JobResult:
     pdf: bytes
     translation: TranslationResult
     untouched: tuple[str, ...]  # DOCX features that were not translated
+    marked: tuple[int, ...] = ()  # ``document`` blocks left in the source language
 
     @property
     def hits(self) -> int:
@@ -78,6 +79,7 @@ def run_job(
         )
         document, docx = inplace.document, inplace.data
         translation, untouched = inplace.translation, inplace.untouched
+        marked: tuple[int, ...] = ()  # DOCX failures index text groups, not document blocks
     else:
         translation = translate_document(
             read_document(name, data),
@@ -87,10 +89,11 @@ def run_job(
             cancel=cancel,
             segment_chars=segment_chars,
         )
-        document, untouched = translation.document, ()
+        document, untouched, marked = translation.document, (), translation.failed
         docx = write_docx(document, title=stem, language=target, author=user)
     pdf = write_pdf(document, title=stem, author=user)
-    return JobResult(stem, target, document, write_md(document), docx, pdf, translation, untouched)
+    md = write_md(document)
+    return JobResult(stem, target, document, md, docx, pdf, translation, untouched, marked)
 
 
 def report_csv(result: JobResult) -> bytes:
@@ -100,9 +103,24 @@ def report_csv(result: JobResult) -> bytes:
     out.writerow(["kind", "detail", "source", "expected"])
     for miss in result.translation.misses:
         out.writerow(["term", miss.excerpt, miss.entry.source, miss.entry.target])
-    for index in result.translation.failed:
-        text = strip_tags(result.translation.document[index].text)
-        out.writerow(["failed", text[:_EXCERPT], "", ""])
+    for excerpt in failed_excerpts(result):
+        out.writerow(["failed", excerpt, "", ""])
     for feature in result.untouched:
         out.writerow(["untouched", feature, "", ""])
     return b"\xef\xbb\xbf" + buf.getvalue().encode()
+
+
+def failed_excerpts(result: JobResult) -> list[str]:
+    """The start of each text that stayed in the source language."""
+    blocks = [result.translation.document[i] for i in result.translation.failed]
+    texts = [b.text or " | ".join(c for row in b.rows for c in row) for b in blocks]
+    return [strip_tags(t)[:_EXCERPT] for t in texts]
+
+
+def preview_markdown(result: JobResult) -> str:
+    """Markdown for the on-screen preview: failed blocks marked with ⚠️, ``$`` escaped (no LaTeX)."""
+    marked = [
+        replace(b, text=f"⚠️ {b.text}") if i in result.marked and b.text else b
+        for i, b in enumerate(result.document)
+    ]
+    return write_markdown(marked).replace("$", r"\$")

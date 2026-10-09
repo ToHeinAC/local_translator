@@ -60,3 +60,12 @@ def test_loaded_models_lists_name_and_vram() -> None:
             raise ConnectionError
 
     assert loaded_models(Down()) == []  # type: ignore[arg-type]
+
+
+def test_handle_knows_its_model_and_elapsed_time() -> None:
+    ticks = iter([100.0, 165.0])
+    handle = JobHandle(lambda progress, cancel: None, label="gemma4:e4b", clock=lambda: next(ticks))  # type: ignore[arg-type]
+    handle.start()
+    handle.join()
+    assert handle.label == "gemma4:e4b"
+    assert handle.elapsed == "01:05"

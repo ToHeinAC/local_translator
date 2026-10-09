@@ -146,3 +146,12 @@ def test_pdf_heading_stays_with_next_block(fillers: int) -> None:
         w: p.page_number for p in pdf.pages for w in ("Kopf", "Danach") if w in p.extract_text()
     }
     assert where["Kopf"] == where["Danach"]
+
+
+def test_glossary_template_as_xlsx_reads_like_the_csv() -> None:
+    from app.glossary import GLOSSARY_TEMPLATE_CSV
+    from app.readers import read_glossary_rows
+    from app.writers import glossary_template_xlsx
+
+    xlsx = read_glossary_rows("vorlage.xlsx", glossary_template_xlsx())
+    assert xlsx == read_glossary_rows("vorlage.csv", GLOSSARY_TEMPLATE_CSV.encode())
