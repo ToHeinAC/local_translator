@@ -1,7 +1,7 @@
 """Output writers: ``Document`` to md/docx/pdf bytes, file names and MIME types."""
 
-from app.docx_writer import write_docx
 from app.document import Document, write_markdown
+from app.docx_writer import write_docx
 from app.pdf_writer import write_pdf
 
 __all__ = ["mime_type", "output_name", "write_docx", "write_md", "write_pdf"]

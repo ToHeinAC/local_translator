@@ -142,5 +142,7 @@ def test_pdf_heading_stays_with_next_block(fillers: int) -> None:
     doc = [Block(Kind.PARAGRAPH, f"Füller {i}") for i in range(fillers)]
     doc += [Block(Kind.HEADING, "Kopf", level=2), Block(Kind.PARAGRAPH, "Danach")]
     pdf = _pdf(doc)
-    where = {w: p.page_number for p in pdf.pages for w in ("Kopf", "Danach") if w in p.extract_text()}
+    where = {
+        w: p.page_number for p in pdf.pages for w in ("Kopf", "Danach") if w in p.extract_text()
+    }
     assert where["Kopf"] == where["Danach"]

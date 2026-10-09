@@ -24,7 +24,7 @@ One row per PRD milestone. Status: `planned`, `in progress`, `done`.
 | 4 | M4: Input readers | done | `tests/test_readers_docx.py`, `tests/test_readers_pdf.py`, full gate green |
 | 5 | M5: Ollama adapter and model registry | done | `tests/test_models.py`, `tests/test_llm_ollama.py`, `tests/test_benchmark.py`, [docs/benchmark.md](docs/benchmark.md), full gate green |
 | 6 | M6: Output writers | done | `tests/test_writers.py`, `tests/test_inline.py`, full gate green |
-| 7 | M7: DOCX in-place translation | planned | |
+| 7 | M7: DOCX in-place translation | done | `tests/test_docx_inplace.py`, `tests/test_run_tags.py`, `tests/test_lang.py`, full gate green |
 | 8 | M8: Streamlit UI | planned | |
 | 9 | M9: Deployment and landing page integration | planned | |
 | 10 | M10: Scanned PDFs (optional, not in v1) | planned | |
@@ -48,6 +48,9 @@ One row per PRD milestone. Status: `planned`, `in progress`, `done`.
 | `src/app/writers.py` | Output entry point: `write_md`, file names, MIME types; re-exports the writers (M6). |
 | `src/app/docx_writer.py` | `Document` to DOCX (python-docx, default template). |
 | `src/app/pdf_writer.py` | `Document` to PDF (reportlab, DejaVu fonts in `src/app/fonts/`). |
+| `src/app/run_tags.py` | Run formatting as `<b>/<i>/<u>/<aN>` tags: encode, validate, decode (M7). |
+| `src/app/lang.py` | `is_in_language`: langdetect check for the skip rule (M7). |
+| `src/app/docx_inplace.py` | `translate_docx`: translate a DOCX in place (M7). |
 | `src/app/core.py` | Example of pure logic (`slugify`). Replace it with your own. |
 | `tests/conftest.py` | Shared fixtures; blocks network access in all tests. |
 | `tests/test_code_rules.py` | Enforces functions ≤ 50 lines in `src/`, `tests/`, `.claude/hooks/`. |

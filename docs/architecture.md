@@ -84,8 +84,8 @@ The gate itself is defined once, in `.pre-commit-config.yaml`. The Stop hook and
   highlight in M7). `hits` counts matched entries per unit; `enforced = hits - misses`.
 - **Progress** is `progress(done, total)` so the UI can show "Abschnitt n von N"; cancel is
   checked after each segment.
-- **Not in M3:** the FR-6a skip of paragraphs already in the target language (needs
-  `langdetect`; planned with M7).
+- The skip of paragraphs already in the target language is applied only by the DOCX in-place
+  path (see below).
 
 ## Input readers (`readers.py`, `docx_reader.py`, `pdf_reader.py`)
 
@@ -120,6 +120,25 @@ The gate itself is defined once, in `.pre-commit-config.yaml`. The Stop hook and
 - **Wide tables:** if any table has more than 8 columns, the whole document is landscape (PDF
   tables also use a smaller font).
 - `inline.py` parses Markdown inline syntax once for both writers; images become `[Bild: alt]`.
+
+## DOCX in-place (`docx_inplace.py`, `run_tags.py`, `lang.py`)
+
+- `translate_docx(data, glossary, llm)` returns the translated bytes, a `Document` (re-read from
+  those bytes, for the md/pdf writers), the `TranslationResult` and the `untouched` features.
+- **Units:** a text group is a run of adjacent plain text runs and hyperlinks inside one paragraph
+  (body, table cells at any depth, header/footer unless linked). Images, fields (including field
+  results and TOC hyperlinks), page breaks and other elements end a group and stay in place.
+  Each group goes through `translate_document` as a paragraph block, so `failed` and `misses`
+  index groups, not `document` blocks.
+- **Tags:** bold/italic/underline become `<b> <i> <u>`, the n-th hyperlink `<an>`. A translation is
+  accepted only if it is balanced and has exactly the source's opening tags; otherwise the group
+  becomes one run with the first run's formatting and hyperlinks in it are flattened to text.
+- **Write-back:** new runs are copies of the source run with the same formatting, inserted where
+  the group started; hyperlink elements (and so their targets) are reused.
+- **Misses** highlight every run of the paragraph yellow. Groups of 40+ characters detected as the
+  target language (`langdetect`, seed 0) are not sent.
+- **Untouched and reported:** footnotes, endnotes, comments, text boxes. Only the core-property
+  language changes.
 
 ## Ollama adapter (`models.py`, `llm_ollama.py`, `benchmark.py`)
 

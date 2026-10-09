@@ -24,6 +24,8 @@ Rules:
 - Return every line with its original ID marker, for example "[[1]] ...". Output nothing else: \
 no comments, no preamble.
 - Keep Markdown inline formatting (**bold**, *italic*, [links](...)) in place.
+- Keep tags such as <b>…</b>, <i>…</i>, <u>…</u> and <a1>…</a1> in place around the matching \
+translated words.
 - Keep tokens like ⟦P1⟧ unchanged and inside the translated line.
 - Do not add, omit or explain anything."""
 
