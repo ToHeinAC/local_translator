@@ -40,6 +40,7 @@ def build_prompt(
     *,
     strict: bool = False,
     missed: Sequence[Entry] = (),
+    untranslated: bool = False,
 ) -> str:
     """Assemble the translation prompt for one segment (``body`` = numbered lines)."""
     src = _LANGUAGES.get(source_lang, source_lang)
@@ -52,6 +53,8 @@ def build_prompt(
         parts.append(_glossary_section(entries))
     if strict:
         parts.append(_strict_section(missed))
+        if untranslated:
+            parts.append(f"Translate every line completely into {tgt}; leave nothing in {src}.")
     if context:
         parts.append(
             f"Context (already translated, do not repeat it):\nSource: {context[0]}\n"

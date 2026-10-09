@@ -5,6 +5,7 @@ from dataclasses import dataclass, replace
 
 from app.document import Block, Document, Kind
 from app.glossary import Entry, Glossary, Match
+from app.lang import MIN_CHARS, looks_untranslated
 from app.prompt import build_prompt
 from app.segment import Cell, Encoded, Unit, decode_segment, encode_segment, pack, plan_units
 
@@ -108,11 +109,12 @@ class _Job:
         """Translate one segment; at most one retry. None if the answer stays unusable."""
         enc = encode_segment(segment)
         entries = _entries(matches)
-        first = self._call(enc, entries, context, False, [])
+        first = self._call(enc, entries, context, False, [], False)
         missed = self._missed(matches, first) if first is not None else []
-        if first is not None and not missed:
+        echoed = first is not None and self._echoed(segment, first)
+        if first is not None and not missed and not echoed:
             return first
-        retry = self._call(enc, entries, context, True, missed)
+        retry = self._call(enc, entries, context, True, missed, echoed)
         return retry if retry is not None else first
 
     def _call(
@@ -122,12 +124,27 @@ class _Job:
         context: Context | None,
         strict: bool,
         missed: list[Entry],
+        untranslated: bool,
     ) -> list[str] | None:
         g = self.glossary
         prompt = build_prompt(
-            enc.body, g.source_lang, g.target_lang, entries, context, strict=strict, missed=missed
+            enc.body,
+            g.source_lang,
+            g.target_lang,
+            entries,
+            context,
+            strict=strict,
+            missed=missed,
+            untranslated=untranslated,
         )
         return decode_segment(self.llm(prompt), enc)
+
+    def _echoed(self, segment: list[Unit], outs: list[str]) -> bool:
+        g = self.glossary
+        return any(
+            looks_untranslated(u.text, o, g.source_lang, g.target_lang)
+            for u, o in zip(segment, outs, strict=True)
+        )
 
     def _missed(self, matches: list[list[Match]], outs: list[str]) -> list[Entry]:
         missed: list[Entry] = []
@@ -142,9 +159,16 @@ class _Job:
             if out is None:
                 self.failed.add((unit.block, unit.cell))
                 continue
-            self.done[unit.idx] = out
             for entry in self.glossary.verify(out, found):
                 self.misses.append(TermMiss(unit.block, unit.text[:80], entry))
+            if _unchanged(unit.text, out):  # the model handed the source back
+                self.failed.add((unit.block, unit.cell))
+            else:
+                self.done[unit.idx] = out
+
+
+def _unchanged(source: str, out: str) -> bool:
+    return len(source) >= MIN_CHARS and " ".join(out.split()) == " ".join(source.split())
 
 
 def _entries(matches: list[list[Match]]) -> list[Entry]:

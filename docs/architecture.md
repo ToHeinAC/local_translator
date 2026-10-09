@@ -80,6 +80,10 @@ The gate itself is defined once, in `.pre-commit-config.yaml`. The Stop hook and
   each unit is translated alone (with the same single retry); a unit that still fails stays in
   the source language and its block is listed in `TranslationResult.failed`. An exception from
   `llm` marks the whole segment failed without retry (network retries belong to the M5 adapter).
+- **Untranslated output:** a unit of 40+ characters whose answer still reads as the source
+  language (`langdetect`) or equals the source counts like a term miss and triggers the strict
+  retry, which then says "Translate every line completely into <language>". An answer that is
+  still identical to the source after that is listed in `failed`; its term misses are kept.
 - **Term check is per unit**, so a miss is attributed to its block (needed for the DOCX
   highlight in M7). `hits` counts matched entries per unit; `enforced = hits - misses`.
 - **Progress** is `progress(done, total)` so the UI can show "Abschnitt n von N"; cancel is
@@ -151,6 +155,8 @@ The gate itself is defined once, in `.pre-commit-config.yaml`. The Stop hook and
   Streamlit. A `st.fragment(run_every=1)` polls it for the progress bar and the cancel button
   and triggers a full rerun when it finishes. The start button is disabled while a handle exists,
   which prevents a second job. Uploads are held in memory only, so there is no temp dir to clean.
+- **Preview:** `$` is escaped so Streamlit does not render dollar amounts as LaTeX; the
+  downloads are unaffected.
 - **Session state:** `result` survives reruns; a new upload (name, size, file id) cancels the
   old job and drops result, error and cached file info. Logout clears everything except the GUI
   language.

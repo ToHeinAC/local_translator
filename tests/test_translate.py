@@ -190,3 +190,32 @@ def test_fatal_llm_error_aborts_the_job() -> None:
 
     with pytest.raises(FatalLlmError):
         translate_document(DOC[:1], EMPTY, Fake(handler))
+
+
+GERMAN_LINE = "Der schnelle braune Fuchs springt über den faulen Hund am Flussufer."
+
+
+def test_echoed_line_is_retried_with_a_translate_everything_instruction() -> None:
+    def handler(prompt: str) -> str:
+        return body(prompt) if STRICT_MARKER not in prompt else body(prompt).upper()
+
+    fake = Fake(handler)
+    result = translate_document([Block(Kind.PARAGRAPH, GERMAN_LINE)], EMPTY, fake)
+    assert result.document[0].text == GERMAN_LINE.upper()
+    assert result.failed == ()
+    assert len(fake.prompts) == 2
+    assert "Translate every line completely into English" in fake.prompts[1]
+
+
+def test_line_that_stays_identical_after_the_retry_is_reported_as_failed() -> None:
+    fake = Fake(lambda prompt: body(prompt))
+    result = translate_document([Block(Kind.PARAGRAPH, GERMAN_LINE)], EMPTY, fake)
+    assert result.failed == (0,)
+    assert result.document[0].text == GERMAN_LINE
+
+
+def test_short_unchanged_text_is_not_treated_as_an_echo() -> None:
+    fake = Fake(lambda prompt: body(prompt))
+    result = translate_document([Block(Kind.PARAGRAPH, "Siehe Anlage 3")], EMPTY, fake)
+    assert result.failed == ()
+    assert len(fake.prompts) == 1

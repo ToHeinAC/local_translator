@@ -169,7 +169,7 @@ def test_double_click_starts_only_one_job(env: Env) -> None:
     def slow(prompt: str) -> str:
         calls.append(prompt)
         gate.wait(10)
-        return upper(prompt)
+        return "[[1]] The quick brown fox jumps over the lazy dog near the river."
 
     env.llm = slow
     at = _upload(env.app())
@@ -252,3 +252,15 @@ def test_missing_seed_passwords_and_bad_config_show_messages(env: Env) -> None:
     assert any("Start-Passwörter" in e.value for e in env.app(user=None).error)
     os.environ["SEGMENT_CHARS"] = "abc"
     assert any("SEGMENT_CHARS" in e.value for e in env.app().error)
+
+
+def test_dollar_signs_in_the_preview_are_not_rendered_as_math(env: Env) -> None:
+    env.llm = lambda p: body_text(p)
+    at = _upload(env.app(), "geld.md", b"Cost 700 $ and 900 $ today.\n")
+    at.selectbox(key="target").set_value("de")
+    at = _translate(at.run())
+    assert any(r"700 \$ and 900 \$" in m.value for m in at.markdown)
+
+
+def body_text(prompt: str) -> str:
+    return prompt.split(BODY_MARKER, 1)[1]

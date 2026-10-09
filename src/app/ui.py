@@ -290,7 +290,7 @@ def _show_result(result: JobResult, lang: str) -> None:
     if result.cancelled:
         st.warning(t("cancelled_notice", lang))
     with st.container(border=True):
-        st.markdown(str(result.md.decode()))
+        st.markdown(result.md.decode().replace("$", r"\$"))  # no LaTeX in the preview
         files = {"md": result.md, "docx": result.docx, "pdf": result.pdf}
         for col, (ext, data) in zip(st.columns(3), files.items(), strict=True):
             col.download_button(

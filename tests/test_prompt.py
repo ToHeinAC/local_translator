@@ -30,3 +30,11 @@ def test_prompt_context_and_strict_missed_terms() -> None:
 
 def test_normal_prompt_has_no_strict_marker() -> None:
     assert STRICT_MARKER not in build_prompt("[[1]] x", "de", "en", [], None)
+
+
+def test_strict_prompt_can_demand_a_full_translation() -> None:
+    prompt = build_prompt("[[1]] x", "de", "en", [], None, strict=True, untranslated=True)
+    assert "Translate every line completely into English" in prompt
+    assert "Translate every line completely" not in build_prompt(
+        "[[1]] x", "de", "en", [], None, strict=True
+    )

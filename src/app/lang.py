@@ -30,3 +30,12 @@ def detect_language(text: str) -> str | None:
     except LangDetectException:
         return None
     return code if code in SUPPORTED_LANGUAGES else None
+
+
+def looks_untranslated(source: str, output: str, source_lang: str, target_lang: str) -> bool:
+    """True if ``output`` still reads as the source language (source of 40+ characters only)."""
+    if source_lang == target_lang or len(source) < MIN_CHARS:
+        return False
+    return " ".join(output.split()) == " ".join(source.split()) or (
+        detect_language(output) == source_lang
+    )
