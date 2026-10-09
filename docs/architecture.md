@@ -86,3 +86,22 @@ The gate itself is defined once, in `.pre-commit-config.yaml`. The Stop hook and
   checked after each segment.
 - **Not in M3:** the FR-6a skip of paragraphs already in the target language (needs
   `langdetect`; planned with M7).
+
+## Input readers (`readers.py`, `docx_reader.py`, `pdf_reader.py`)
+
+- `read_document(name, data)` dispatches on the extension. Errors are `DocumentReadError`
+  (unsupported type, corrupt file, scanned PDF, > 200 pages) or `EmptyDocumentError`; both carry
+  user-facing German messages.
+- **DOCX:** body paragraphs and tables in order. Headings from the `Title`/`Heading n` styles or
+  an outline level (paragraph or style chain). Lists from `numPr` (paragraph or style chain);
+  depth from `ilvl` or a "List Bullet 2" style suffix; ordered if the numbering format is not
+  `bullet`. Runs with the same bold/italic are merged into `**`/`*` markup; hyperlinks become
+  Markdown links; images become `[Bild: <alt or name>]`. Table cells are joined into one line;
+  merged cells repeat their text. Headers, footers and notes are not read here (M7 handles them).
+- **PDF:** text lines come with their font size. Lines in the top or bottom 10 % whose text
+  (digits normalised) repeats on at least 60 % of the pages (min. 2) are dropped. The most common
+  size is body text; sizes at least 15 % larger become headings, ranked by size. Lines join into a
+  paragraph unless the gap exceeds half the body size; hyphenated line ends are joined. No tables
+  or lists are recovered.
+- **Plain text:** blank-line separated paragraphs; inline Markdown characters are not escaped.
+- `pillow` (HPND, permissive) arrives as a dependency of reportlab.

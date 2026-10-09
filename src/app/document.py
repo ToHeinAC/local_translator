@@ -40,6 +40,10 @@ class EmptyDocumentError(ValueError):
     """The document has no translatable text."""
 
 
+class DocumentReadError(ValueError):
+    """An input file is unsupported or corrupt (message is shown to the user)."""
+
+
 _IMAGE_ONLY = re.compile(r"!\[([^\]]*)\]\([^)]*\)")
 _NO_TEXT = {Kind.IMAGE_PLACEHOLDER, Kind.PAGE_BREAK}
 _MD = MarkdownIt("commonmark").enable("table")
@@ -47,7 +51,11 @@ _MD = MarkdownIt("commonmark").enable("table")
 
 def parse_markdown(source: str) -> Document:
     """Parse Markdown into blocks; raise ``EmptyDocumentError`` if no text remains."""
-    doc = _Parser(_MD.parse(source)).run()
+    return require_text(_Parser(_MD.parse(source)).run())
+
+
+def require_text(doc: Document) -> Document:
+    """Return ``doc``; raise ``EmptyDocumentError`` if it holds no text (e.g. only images)."""
     if not any(b.kind not in _NO_TEXT and (b.text.strip() or b.rows) for b in doc):
         raise EmptyDocumentError("Dokument enthält keinen Text")
     return doc

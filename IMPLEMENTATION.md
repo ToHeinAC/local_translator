@@ -21,7 +21,7 @@ One row per PRD milestone. Status: `planned`, `in progress`, `done`.
 | 1 | M1: Document model and Markdown round trip | done | `tests/test_document.py`, full gate green |
 | 2 | M2: Glossary | done | `tests/test_glossary.py`, `tests/test_glossary_readers.py`, full gate green |
 | 3 | M3: Translation core with fake LLM | done | `tests/test_segment.py`, `tests/test_prompt.py`, `tests/test_translate.py`, full gate green |
-| 4 | M4: Input readers | planned | |
+| 4 | M4: Input readers | done | `tests/test_readers_docx.py`, `tests/test_readers_pdf.py`, full gate green |
 | 5 | M5: Ollama adapter and model registry | planned | |
 | 6 | M6: Output writers | planned | |
 | 7 | M7: DOCX in-place translation | planned | |
@@ -35,7 +35,9 @@ One row per PRD milestone. Status: `planned`, `in progress`, `done`.
 |---|---|
 | `src/app/document.py` | Block model, Markdown parse/write, `same_structure` (M1). |
 | `src/app/glossary.py` | Glossary entries per language pair, match, verify, template (M2). |
-| `src/app/readers.py` | Input adapters; so far csv/tsv/xlsx/md glossary rows (M2). |
+| `src/app/readers.py` | Input adapters: glossary rows (M2), `read_document` dispatch for docx/md/txt/pdf (M4). |
+| `src/app/docx_reader.py` | DOCX body to blocks (python-docx). |
+| `src/app/pdf_reader.py` | Text-layer PDF to blocks (pdfplumber), heading levels from font size. |
 | `src/app/segment.py` | Units, packing, protected spans, `[[n]]` wire format (M3). |
 | `src/app/prompt.py` | English prompt builder (M3). |
 | `src/app/translate.py` | `translate_document` with injected `llm`, retries, progress, cancel (M3). |

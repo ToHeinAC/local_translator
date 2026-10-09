@@ -2,14 +2,25 @@
 
 import csv
 import io
+import re
 import zipfile
 from pathlib import Path
 
 from openpyxl import load_workbook
 from openpyxl.utils.exceptions import InvalidFileException
 
-from app.document import EmptyDocumentError, Kind, parse_markdown
+from app.document import (
+    Block,
+    Document,
+    DocumentReadError,
+    EmptyDocumentError,
+    Kind,
+    parse_markdown,
+    require_text,
+)
+from app.docx_reader import read_docx
 from app.glossary import GlossaryError
+from app.pdf_reader import read_pdf
 
 
 def read_glossary_rows(name: str, data: bytes) -> list[list[str]]:
@@ -60,3 +71,23 @@ def _read_md_table(data: bytes) -> list[list[str]]:
         if block.kind is Kind.TABLE:
             return [[c.strip() for c in row] for row in block.rows]
     raise GlossaryError("Keine Tabelle im Markdown-Glossar gefunden")
+
+
+def read_document(name: str, data: bytes) -> Document:
+    """Read a docx/md/txt/pdf file into blocks. Errors are ``DocumentReadError`` or
+    ``EmptyDocumentError``, both with user-facing messages."""
+    ext = Path(name).suffix.lower()
+    if ext == ".docx":
+        return read_docx(data)
+    if ext == ".pdf":
+        return read_pdf(data)
+    if ext == ".md":
+        return parse_markdown(_decode(data))
+    if ext == ".txt":
+        return _read_txt(_decode(data))
+    raise DocumentReadError(f"Dateityp '{ext}' wird nicht unterstützt")
+
+
+def _read_txt(text: str) -> Document:
+    paragraphs = [" ".join(p.split()) for p in re.split(r"\n\s*\n", text)]
+    return require_text([Block(Kind.PARAGRAPH, p) for p in paragraphs if p])

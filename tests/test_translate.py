@@ -18,7 +18,7 @@ DOC: Document = [
 class Fake:
     """Records prompts; ``handler`` maps a prompt to the model answer."""
 
-    def __init__(self, handler=None) -> None:  # noqa: ANN001
+    def __init__(self, handler=None) -> None:
         self.prompts: list[str] = []
         self.handler = handler or (lambda p: body(p).upper())
 
@@ -83,7 +83,7 @@ def test_persistent_term_miss_is_reported_not_blocking() -> None:
     assert (result.hits, result.enforced) == (1, 0)
 
 
-def _multi_only(drop):  # noqa: ANN001, ANN202
+def _multi_only(drop):
     """Misbehave for prompts with two or more units, echo single-unit prompts."""
 
     def handler(prompt: str) -> str:
