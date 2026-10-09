@@ -106,6 +106,21 @@ The gate itself is defined once, in `.pre-commit-config.yaml`. The Stop hook and
 - **Plain text:** blank-line separated paragraphs; inline Markdown characters are not escaped.
 - `pillow` (HPND, permissive) arrives as a dependency of reportlab.
 
+## Output writers (`writers.py`, `docx_writer.py`, `pdf_writer.py`, `inline.py`)
+
+- `write_md` is the M1 writer; `output_name(stem, target, ext)` gives `<stem>_<target>.<ext>`.
+- **DOCX:** Word's default template. Title, language and author go to the core properties (no
+  title paragraph). Headings use `Heading n`; lists `List Bullet|Number [2|3]` (depth above 3 is
+  clamped); tables use `Light Grid Accent 1` (header bold via the style, not runs); links are real
+  hyperlinks. Quote and code have no reader counterpart and read back as paragraphs. Ordered lists
+  share one numbering instance, so a second list continues the count in Word.
+- **PDF:** A4, DejaVu Sans/Mono from `src/app/fonts/` (notice in THIRD_PARTY_NOTICES.md). Headings
+  are bold with `keepWithNext`; tables repeat their header row on each page. `PAGE_BREAK` is a page
+  break in both formats.
+- **Wide tables:** if any table has more than 8 columns, the whole document is landscape (PDF
+  tables also use a smaller font).
+- `inline.py` parses Markdown inline syntax once for both writers; images become `[Bild: alt]`.
+
 ## Ollama adapter (`models.py`, `llm_ollama.py`, `benchmark.py`)
 
 - `make_llm(client, model, host)` returns the `llm(prompt) -> str` that `translate_document`

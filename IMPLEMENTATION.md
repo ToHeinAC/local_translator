@@ -23,7 +23,7 @@ One row per PRD milestone. Status: `planned`, `in progress`, `done`.
 | 3 | M3: Translation core with fake LLM | done | `tests/test_segment.py`, `tests/test_prompt.py`, `tests/test_translate.py`, full gate green |
 | 4 | M4: Input readers | done | `tests/test_readers_docx.py`, `tests/test_readers_pdf.py`, full gate green |
 | 5 | M5: Ollama adapter and model registry | done | `tests/test_models.py`, `tests/test_llm_ollama.py`, `tests/test_benchmark.py`, [docs/benchmark.md](docs/benchmark.md), full gate green |
-| 6 | M6: Output writers | planned | |
+| 6 | M6: Output writers | done | `tests/test_writers.py`, `tests/test_inline.py`, full gate green |
 | 7 | M7: DOCX in-place translation | planned | |
 | 8 | M8: Streamlit UI | planned | |
 | 9 | M9: Deployment and landing page integration | planned | |
@@ -44,6 +44,10 @@ One row per PRD milestone. Status: `planned`, `in progress`, `done`.
 | `src/app/models.py` | Model registry, default resolution, availability marks (M5). |
 | `src/app/llm_ollama.py` | Ollama adapter: chat (`think=False`), tags, unload, typed unreachable error (M5). |
 | `src/app/benchmark.py` | Synthetic fixture and benchmark runner (`python -m app.benchmark`). |
+| `src/app/inline.py` | Markdown inline text to formatted runs (shared by the writers, M6). |
+| `src/app/writers.py` | Output entry point: `write_md`, file names, MIME types; re-exports the writers (M6). |
+| `src/app/docx_writer.py` | `Document` to DOCX (python-docx, default template). |
+| `src/app/pdf_writer.py` | `Document` to PDF (reportlab, DejaVu fonts in `src/app/fonts/`). |
 | `src/app/core.py` | Example of pure logic (`slugify`). Replace it with your own. |
 | `tests/conftest.py` | Shared fixtures; blocks network access in all tests. |
 | `tests/test_code_rules.py` | Enforces functions ≤ 50 lines in `src/`, `tests/`, `.claude/hooks/`. |
