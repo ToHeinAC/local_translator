@@ -81,6 +81,17 @@ def _client(cfg: Config) -> llm_ollama.OllamaClient:
     return llm_ollama.make_client(cfg.host, cfg.timeout_s)
 
 
+@st.cache_data(ttl=30, show_spinner=False)
+def _installed(host: str, timeout_s: float) -> set[str]:
+    """Pulled models; cached because every widget click reruns the script."""
+    return llm_ollama.installed_tags(llm_ollama.make_client(host, timeout_s), host)
+
+
+@st.cache_data(ttl=10, show_spinner=False)
+def _loaded(host: str, timeout_s: float) -> list[tuple[str, int]]:
+    return llm_ollama.loaded_models(llm_ollama.make_client(host, timeout_s))
+
+
 def _sidebar(cfg: Config, lang: str) -> None:
     st.sidebar.markdown(f"## 🌐 {t('app_title', lang)}")
     st.sidebar.markdown("---")
@@ -101,13 +112,14 @@ def _sidebar(cfg: Config, lang: str) -> None:
 
 def _vram_panel(cfg: Config, lang: str) -> None:
     st.caption(t("vram_status", lang))
-    loaded = llm_ollama.loaded_models(_client(cfg))
+    loaded = _loaded(cfg.host, cfg.timeout_s)
     for name, size in loaded:
         st.caption(t("vram_model", lang, name=name, gb=f"{size / _GB:.1f}"))
     if not loaded:
         st.caption(t("vram_empty", lang))
     if st.button(t("clear_vram", lang), key="clear_vram_btn"):
         st.success(t("vram_cleared", lang, n=len(llm_ollama.unload_all(_client(cfg)))))
+        _loaded.clear()
 
 
 def _exit_control(lang: str) -> None:
@@ -129,7 +141,7 @@ def _model_selector(col: Any, cfg: Config, lang: str) -> ModelStatus:
     col.caption(t("model_caption", lang))
     installed: set[str]
     try:
-        installed = llm_ollama.installed_tags(_client(cfg), cfg.host)
+        installed = _installed(cfg.host, cfg.timeout_s)
     except llm_ollama.OllamaUnavailableError:
         installed = set()
         col.error(t("ollama_down", lang, host=cfg.host))

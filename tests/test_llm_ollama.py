@@ -53,6 +53,7 @@ def test_request_parameters_and_content() -> None:
     assert call["messages"] == [{"role": "user", "content": "prompt"}]
     assert call["think"] is False
     assert call["options"] == {"temperature": 0.1, "num_ctx": 8192}
+    assert call["keep_alive"] == "30m"  # no reload between segments of a long job
 
 
 def test_make_client_passes_host_and_timeout(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -10,6 +10,7 @@ from app.translate import FatalLlmError, Llm
 
 TEMPERATURE = 0.1
 NUM_CTX = 8192
+KEEP_ALIVE = "30m"  # Ollama unloads idle models after 5 min by default
 
 
 class OllamaUnavailableError(FatalLlmError):
@@ -59,6 +60,7 @@ def _chat(client: OllamaClient, model: str, host: str, prompt: str) -> str:
                 messages=_messages(prompt),
                 think=False,
                 options={"temperature": TEMPERATURE, "num_ctx": NUM_CTX},
+                keep_alive=KEEP_ALIVE,
             )
             return str(resp["message"]["content"])
         except httpx.TimeoutException as exc:

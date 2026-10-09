@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+import streamlit as st
 from streamlit.testing.v1 import AppTest
 
 from app import llm_ollama, theme
@@ -37,6 +38,7 @@ class Env:
         self.llm: Callable[[str], str] = upper
         self.installed = {"gemma4:e4b"}
         self.mp = mp
+        st.cache_data.clear()  # the UI caches Ollama status calls across reruns
         for key in ENV_KEYS:
             mp.setenv(key, "")
         mp.setenv("DATA_DIR", str(tmp))
@@ -264,3 +266,17 @@ def test_dollar_signs_in_the_preview_are_not_rendered_as_math(env: Env) -> None:
 
 def body_text(prompt: str) -> str:
     return prompt.split(BODY_MARKER, 1)[1]
+
+
+def test_ollama_status_is_cached_between_reruns(env: Env) -> None:
+    calls: list[int] = []
+
+    def installed(_client: object, _host: str) -> set[str]:
+        calls.append(1)
+        return env.installed
+
+    env.mp.setattr(llm_ollama, "installed_tags", installed)
+    at = env.app()
+    at.run()
+    at.run()
+    assert len(calls) == 1
