@@ -33,3 +33,7 @@ def test_annotate_marks_missing_models_with_pull_hint() -> None:
 def test_annotate_ignores_tag_case() -> None:
     statuses = annotate({"Qwen3:14b", "GEMMA4:E4B"})
     assert [s.installed for s in statuses] == [False, True, True]
+
+
+def test_every_model_has_a_segment_size() -> None:
+    assert all(500 <= m.segment_chars <= 6000 for m in MODELS)

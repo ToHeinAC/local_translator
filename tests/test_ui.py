@@ -305,3 +305,24 @@ def test_disabled_start_button_explains_why(env: Env) -> None:
 def test_source_language_shows_what_was_detected(env: Env) -> None:
     at = _upload(env.app())
     assert any("Erkannt: Deutsch" in c.value for c in at.caption)
+
+
+def test_job_uses_the_models_segment_size_unless_overridden(
+    env: Env, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app import pipeline
+    from app.models import MODELS
+
+    seen: list[int] = []
+    real = pipeline.run_job
+
+    def spy(*args: Any, **kwargs: Any) -> Any:
+        seen.append(kwargs["segment_chars"])
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(pipeline, "run_job", spy)
+    _translate(_upload(env.app()))
+    monkeypatch.setenv("SEGMENT_CHARS", "777")
+    _translate(_upload(env.app()))
+    standard = next(m for m in MODELS if m.tag == "gemma4:e4b")
+    assert seen == [standard.segment_chars, 777]

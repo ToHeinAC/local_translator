@@ -271,7 +271,7 @@ def _start(cfg: Config, upload: Any, status: ModelStatus, glossary: Glossary) ->
             user=user,
             progress=progress,
             cancel=cancel,
-            segment_chars=cfg.segment_chars,
+            segment_chars=cfg.segment_chars or status.info.segment_chars,
         )
 
     handle = JobHandle(work, label=status.info.tag)

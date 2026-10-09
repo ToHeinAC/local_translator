@@ -73,23 +73,34 @@ The gate itself is defined once, in `.pre-commit-config.yaml`. The Stop hook and
 ## Translation core (`segment.py`, `prompt.py`, `translate.py`)
 
 - **Units:** each translatable block, table cell or sentence group (for text longer than
-  `segment_chars`) is one unit; units without letters are skipped. Units are packed into
-  segments of at most `segment_chars`.
-- **Per segment:** call 1; if the answer is unusable (ID or protected token missing, extra or
-  duplicated) or a glossary term is missing, one strict retry. If the answer stays unusable,
-  each unit is translated alone (with the same single retry); a unit that still fails stays in
-  the source language and its block is listed in `TranslationResult.failed`. An exception from
-  `llm` marks the whole segment failed without retry (network retries belong to the M5 adapter).
-- **Untranslated output:** a unit of 40+ characters whose answer still reads as the source
-  language (`langdetect`) or equals the source counts like a term miss and triggers the strict
-  retry, which then says "Translate every line completely into <language>". An answer that is
-  still identical to the source after that is listed in `failed`; its term misses are kept.
+  `segment_chars`) is one unit. Units without letters, and texts of 40+ characters already in
+  the target language (FR-6a, `langdetect`), are skipped and copied unchanged. Units are packed
+  into segments of at most `segment_chars`: each registry model has its own size
+  (`models.ModelInfo.segment_chars`, smaller for small models); `SEGMENT_CHARS` overrides it.
+- **Prompt:** `build_prompt` returns `system + SYSTEM_SPLIT + user`; `llm_ollama` sends the two
+  parts as a system and a user message. The system part holds the role, rules and answer format;
+  the user part holds glossary, strict note, context, and ends with "Translate every numbered
+  line into <target>. Answer only in <target>." right before the text.
+- **Per segment:** call 1; if the answer is unusable (ID or protected token missing or extra,
+  IDs out of order) or a glossary term is missing, or the answer still reads as the source
+  language, one strict retry. If the answer stays unusable, the segment is split in halves and
+  each half is tried the same way, down to single units; a unit that still fails stays in the
+  source language and its block is listed in `TranslationResult.failed`. An exception from
+  `llm` counts as an unusable answer; `FatalLlmError` aborts the job.
+- **Bilingual answers:** adjacent lines with the same ID (models sometimes repeat the source
+  line first) collapse to the last one. This relaxes the PRD M3 wording "duplicated IDs →
+  unusable"; a wrong pick is still caught by the language check.
+- **Untranslated output:** the language check runs on each unit of 40+ characters and on the
+  whole segment (so short lines count too). The strict retry then adds "Translate every line
+  completely into <language>". A long answer still identical to the source is listed in
+  `failed` (term misses kept), unless it is mostly capitalised words (names, titles).
+- **Context:** the last unit of the previous segment is passed on only if its segment passed
+  the language check. An echoed answer is never used as context, which would prime the next
+  segment to echo too (the cascade behind the "first 70 % English" report).
 - **Term check is per unit**, so a miss is attributed to its block (needed for the DOCX
   highlight in M7). `hits` counts matched entries per unit; `enforced = hits - misses`.
 - **Progress** is `progress(done, total)` so the UI can show "Abschnitt n von N"; cancel is
   checked after each segment.
-- The skip of paragraphs already in the target language is applied only by the DOCX in-place
-  path (see below).
 
 ## Input readers (`readers.py`, `docx_reader.py`, `pdf_reader.py`)
 
@@ -139,8 +150,8 @@ The gate itself is defined once, in `.pre-commit-config.yaml`. The Stop hook and
   becomes one run with the first run's formatting and hyperlinks in it are flattened to text.
 - **Write-back:** new runs are copies of the source run with the same formatting, inserted where
   the group started; hyperlink elements (and so their targets) are reused.
-- **Misses** highlight every run of the paragraph yellow. Groups of 40+ characters detected as the
-  target language (`langdetect`, seed 0) are not sent.
+- **Misses** highlight every run of the paragraph yellow. Texts already in the target language
+  are skipped by `plan_units` (see translation core).
 - **Untouched and reported:** footnotes, endnotes, comments, text boxes. Only the core-property
   language changes.
 
@@ -155,8 +166,13 @@ The gate itself is defined once, in `.pre-commit-config.yaml`. The Stop hook and
   Streamlit. A `st.fragment(run_every=1)` polls it for the progress bar and the cancel button
   and triggers a full rerun when it finishes. The start button is disabled while a handle exists,
   which prevents a second job. Uploads are held in memory only, so there is no temp dir to clean.
-- **Preview:** `$` is escaped so Streamlit does not render dollar amounts as LaTeX; the
-  downloads are unaffected.
+- **Result panel:** passages left in the source language are listed above the downloads
+  (`pipeline.failed_excerpts`) and marked ⚠️ in the preview (`pipeline.preview_markdown`, only
+  for rebuilt documents; DOCX failures index text groups). The preview escapes `$` so Streamlit
+  does not render amounts as LaTeX; the downloads are unaffected.
+- **Ollama calls:** chat requests use `keep_alive="30m"`, so a long job does not reload the
+  model. The UI caches the installed-model list (30 s) and the VRAM list (10 s), because every
+  click reruns the script.
 - **Session state:** `result` survives reruns; a new upload (name, size, file id) cancels the
   old job and drops result, error and cached file info. Logout clears everything except the GUI
   language.

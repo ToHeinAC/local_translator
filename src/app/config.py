@@ -14,7 +14,7 @@ class Config:
     host: str
     default_model: str | None
     default_target: str
-    segment_chars: int
+    segment_chars: int | None  # None: each model's own size (models.py)
     max_upload_mb: int
     timeout_s: float
     admins: tuple[str, ...]
@@ -45,7 +45,7 @@ def load_config(env: Mapping[str, str]) -> Config:
         host=env.get("OLLAMA_HOST", "").strip() or "http://localhost:11434",
         default_model=env.get("DEFAULT_MODEL", "").strip() or None,
         default_target=target,
-        segment_chars=int(_number(env, "SEGMENT_CHARS", 3000, int)),
+        segment_chars=int(_number(env, "SEGMENT_CHARS", 0, int)) or None,
         max_upload_mb=int(_number(env, "MAX_UPLOAD_MB", 25, int)),
         timeout_s=float(_number(env, "LLM_TIMEOUT_S", 600.0, float)),
         admins=admins,

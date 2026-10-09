@@ -10,6 +10,7 @@ class ModelInfo:
     label: str  # German UI label
     speed: int  # 1-3 stars
     quality: int  # 1-3 stars
+    segment_chars: int  # characters per request; smaller for small models (fewer format errors)
 
 
 @dataclass(frozen=True)
@@ -20,9 +21,9 @@ class ModelStatus:
 
 
 MODELS = (
-    ModelInfo("fast", "gemma4:e2b", "Schnell", 3, 1),
-    ModelInfo("standard", "gemma4:e4b", "Standard", 2, 2),
-    ModelInfo("precise", "qwen3:14b", "Präzise", 1, 3),
+    ModelInfo("fast", "gemma4:e2b", "Schnell", 3, 1, 1500),
+    ModelInfo("standard", "gemma4:e4b", "Standard", 2, 2, 3000),
+    ModelInfo("precise", "qwen3:14b", "Präzise", 1, 3, 3000),
 )
 DEFAULT_TAG = "gemma4:e4b"
 

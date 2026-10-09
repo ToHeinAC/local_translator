@@ -81,3 +81,9 @@ One row per PRD milestone. Status: `planned`, `in progress`, `done`.
   3 of 4 glossary hits were enforced. The miss ("Freigabe" in the heading, still untranslated
   after the strict retry) was reported and highlighted as designed. The Streamlit UI itself has
   only run against a stubbed Ollama, and no real document has been checked yet.
+- Language consistency (user report: a document came back about 70 % in English): not
+  reproduced with the user's file on `gemma4:e2b`/`e4b`. Likely cause, fixed: an echoed answer
+  was passed on as context and primed the next segments to echo too. Before/after numbers in
+  [docs/benchmark.md](docs/benchmark.md). PRD M3 still says duplicated IDs make an answer
+  unusable; adjacent duplicates are now accepted (see docs/architecture.md); the PRD wording
+  needs the user's approval to change.

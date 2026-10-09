@@ -12,7 +12,7 @@ def test_config_defaults_and_overrides() -> None:
     assert (cfg.host, cfg.default_target, cfg.segment_chars) == (
         "http://localhost:11434",
         "en",
-        3000,
+        None,  # unset: each model's own segment size
     )
     assert (cfg.max_upload_mb, cfg.timeout_s, cfg.admins) == (25, 600.0, ("T. Hein",))
     cfg = load_config(
