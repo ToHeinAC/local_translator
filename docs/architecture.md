@@ -44,3 +44,15 @@ The gate itself is defined once, in `.pre-commit-config.yaml`. The Stop hook and
   Contributors must run `uv run pre-commit install`.
 - Claude Code permission rules are not a security boundary. `Read(.env)` stops the Read tool,
   not every shell command. Keep real secrets out of the repo directory where you can.
+
+## Document model (`src/app/document.py`)
+
+- **One flat `Block` type** with a `Kind` enum; inline text stays a raw Markdown string.
+- **`translate` flag** (extends PRD §5.2): False for HTML, code and image placeholders, so the
+  translation core has one check for "leave untouched".
+- **Canonical Markdown:** ATX headings, `-` bullets, `1.` renumbered ordered lists, nesting by
+  marker width, fenced code, GFM tables. Non-canonical input is normalised, not preserved.
+- **Known limitations (flat model):** extra paragraphs, code or tables inside a list item become
+  top-level blocks; quote paragraphs become separate `quote` blocks and nested quotes are
+  flattened; `---` maps to `page_break`; two adjacent lists of the same type merge on write.
+- Empty or image-only input raises `EmptyDocumentError("Dokument enthält keinen Text")`.

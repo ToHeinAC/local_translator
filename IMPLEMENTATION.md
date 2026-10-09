@@ -18,7 +18,7 @@ One row per PRD milestone. Status: `planned`, `in progress`, `done`.
 | Phase | Milestone | Status | Verified by |
 |---|---|---|---|
 | 0 | Blueprint skeleton (no PRD milestone) | done | full gate green |
-| 1 | M1: Document model and Markdown round trip | planned | |
+| 1 | M1: Document model and Markdown round trip | done | `tests/test_document.py`, full gate green |
 | 2 | M2: Glossary | planned | |
 | 3 | M3: Translation core with fake LLM | planned | |
 | 4 | M4: Input readers | planned | |
@@ -33,6 +33,7 @@ One row per PRD milestone. Status: `planned`, `in progress`, `done`.
 
 | Module | Responsibility |
 |---|---|
+| `src/app/document.py` | Block model, Markdown parse/write, `same_structure` (M1). |
 | `src/app/core.py` | Example of pure logic (`slugify`). Replace it with your own. |
 | `tests/conftest.py` | Shared fixtures; blocks network access in all tests. |
 | `tests/test_code_rules.py` | Enforces functions ≤ 50 lines in `src/`, `tests/`, `.claude/hooks/`. |
