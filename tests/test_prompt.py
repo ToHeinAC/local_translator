@@ -50,3 +50,11 @@ def test_rules_go_to_the_system_part_and_the_target_is_repeated_before_the_text(
     assert "Mandatory terminology" not in system
     assert "Mandatory terminology" in user
     assert user.endswith("into German. Answer only in German.\n" + BODY_MARKER + "[[1]] x")
+
+
+def test_tag_rule_is_sent_only_when_the_text_has_tags() -> None:
+    plain = build_prompt("[[1]] Die Freigabe", "de", "en", [A], None)
+    tagged = build_prompt("[[1]] Die <b>Freigabe</b> und <a1>Link</a1>", "de", "en", [A], None)
+    assert "<b>" not in plain
+    assert "Keep tags" not in plain
+    assert "Keep tags such as <b>…</b>" in tagged

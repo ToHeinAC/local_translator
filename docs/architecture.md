@@ -80,7 +80,9 @@ The gate itself is defined once, in `.pre-commit-config.yaml`. The Stop hook and
 - **Prompt:** `build_prompt` returns `system + SYSTEM_SPLIT + user`; `llm_ollama` sends the two
   parts as a system and a user message. The system part holds the role, rules and answer format;
   the user part holds glossary, strict note, context, and ends with "Translate every numbered
-  line into <target>. Answer only in <target>." right before the text.
+  line into <target>. Answer only in <target>." right before the text. The rule "Keep tags such
+  as <b>…</b> …" is sent only if the segment contains run tags (DOCX): sent with plain PDF/MD
+  text, `gemma4:e4b` copied the example tags into its answers ([benchmark](benchmark.md)).
 - **Per segment:** call 1; if the answer is unusable (ID or protected token missing or extra,
   IDs out of order) or a glossary term is missing, or the answer still reads as the source
   language, one strict retry. If the answer stays unusable, the segment is split in halves and

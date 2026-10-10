@@ -46,6 +46,10 @@ def tag_counts(tagged: str) -> Counter[str]:
     return Counter(m.group(2) for m in _TAG.finditer(tagged) if not m.group(1))
 
 
+def has_tags(text: str) -> bool:
+    return _TAG.search(text) is not None
+
+
 def strip_tags(text: str) -> str:
     return _TAG.sub("", text)
 

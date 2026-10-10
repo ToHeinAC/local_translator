@@ -76,8 +76,8 @@ blocks, inline code, URLs, e-mail addresses, numbers with units, and placeholder
 identifies as the target language is copied unchanged (e.g. English quotes in a German text).
 Shorter paragraphs are always translated, because detection is unreliable for them.
 
-**FR-7 Model selection.** A dropdown with a fixed registry (§5.3): `gemma4:e2b` (fast),
-`gemma4:e4b` (default), `qwen3:14b` (higher quality). The app checks `/api/tags` and marks
+**FR-7 Model selection.** A dropdown with a fixed registry (§5.3): `qwen3:4b` (simple),
+`gemma4:e2b` (fast, default), `gemma4:e4b` (standard). The app checks `/api/tags` and marks
 missing models with the hint `ollama pull <tag>`. Thinking/reasoning output is disabled for all
 models.
 
@@ -190,9 +190,9 @@ number of blocks, the same kinds, heading levels, list depths and table shapes a
 
 | Key | Tag | Label (de) | Speed | Quality | Default |
 |---|---|---|---|---|---|
-| fast | `gemma4:e2b` | Schnell | ★★★ | ★☆☆ | |
-| standard | `gemma4:e4b` | Standard | ★★☆ | ★★☆ | yes |
-| precise | `qwen3:14b` | Präzise | ★☆☆ | ★★★ | |
+| simple | `qwen3:4b` | Einfach | ★★★ | ★☆☆ | |
+| fast | `gemma4:e2b` | Schnell | ★★★ | ★☆☆ | yes |
+| standard | `gemma4:e4b` | Standard | ★★☆ | ★★☆ | |
 
 `DEFAULT_MODEL` in `.env` can override the default; it must be one of the registry tags.
 
@@ -361,7 +361,7 @@ Each milestone ends with the full gate green and becomes one phase row in IMPLEM
 ### M5 — Ollama adapter and model registry
 - **Deliverable:** `llm_ollama.py`, `models.py`.
 - **Acceptance criteria:**
-  - The registry contains exactly the three models from §5.3, with `gemma4:e4b` as the default.
+  - The registry contains exactly the three models from §5.3, with `gemma4:e2b` as the default.
     An invalid `DEFAULT_MODEL` falls back to it with a warning.
   - Requests carry `think=False`, `temperature=0.1`, `num_ctx=8192` and a timeout of
     `LLM_TIMEOUT_S` (tested against a stub client, no network).
@@ -480,7 +480,7 @@ Each milestone ends with the full gate green and becomes one phase row in IMPLEM
 | R-1 | Small models (`gemma4:e2b`) ignore glossary rules or the `[[n]]` format. | Verification and retry (FR-5), block-by-block fallback; the term report makes misses visible. If the hit rate is < 90 % in the M5 benchmark, mark e2b as "draft quality" in the UI. |
 | R-2 | Inflection: German/Polish/Czech target terms appear inflected, so verification gives false negatives. | Suffix tolerance; misses are reported, never silently "fixed". Revisit with lemmatisation only if the report is noisy. |
 | R-3 | PDF structure recovery from font sizes is heuristic. | Accept as best effort (non-goal: layout). DOCX/MD are the recommended inputs; the UI says so. |
-| R-4 | Throughput: `qwen3:14b` on long documents may take > 15 min. | Progress, cancel, and benchmark numbers in the UI tooltip. Shared GPU with the summarizer: Ollama queues requests. |
+| R-4 | Throughput: long documents may take > 15 min (about 170 pages: 17 min on `gemma4:e4b`). | Progress, cancel, and benchmark numbers in the UI tooltip. Shared GPU with the summarizer: Ollama queues requests. |
 | R-5 | Target languages outside Latin script need other fonts. | Out of scope (§4). The target language list is fixed in code. |
 | R-6 | Assumption: the Ollama host has all three models pulled (verified on 2026-10-08 on the dev machine). | Availability check (FR-7). |
 | R-7 | Assumption: the app runs on `172.16.4.112` like the other apps, reached only through nginx. | Documented in `docs/deployment.md`. |

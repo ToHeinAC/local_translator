@@ -3,6 +3,7 @@
 from collections.abc import Sequence
 
 from app.glossary import Entry
+from app.run_tags import has_tags
 
 STRICT_MARKER = "IMPORTANT: the previous answer was rejected."
 BODY_MARKER = "Text to translate:\n"
@@ -21,14 +22,16 @@ _LANGUAGES = {
 }
 SUPPORTED_LANGUAGES = tuple(_LANGUAGES)
 
+_TAG_RULE = """\
+- Keep tags such as <b>…</b>, <i>…</i>, <u>…</u> and <a1>…</a1> in place around the matching \
+translated words.
+"""
 _RULES = """\
 Rules:
 - Return every line with its original ID marker, exactly once. Output nothing else: no source \
 text, no comments, no preamble.
 - Keep Markdown inline formatting (**bold**, *italic*, [links](...)) in place.
-- Keep tags such as <b>…</b>, <i>…</i>, <u>…</u> and <a1>…</a1> in place around the matching \
-translated words.
-- Keep tokens like ⟦P1⟧ unchanged and inside the translated line.
+{tags}- Keep tokens like ⟦P1⟧ unchanged and inside the translated line.
 - Do not add, omit or explain anything."""
 
 
@@ -60,13 +63,14 @@ def build_prompt(
         )
     reminder = f"Translate every numbered line into {tgt}. Answer only in {tgt}.\n"
     parts.append(reminder + BODY_MARKER + body)
-    return _system(src, tgt) + SYSTEM_SPLIT + "\n\n".join(parts)
+    return _system(src, tgt, has_tags(body)) + SYSTEM_SPLIT + "\n\n".join(parts)
 
 
-def _system(src: str, tgt: str) -> str:
+def _system(src: str, tgt: str, tags: bool) -> str:
+    rules = _RULES.format(tags=_TAG_RULE if tags else "")
     return (
         f"You are a professional translator. Translate the numbered lines from {src} to {tgt}."
-        f"\n\n{_RULES}\n\nAnswer format:\n[[1]] <line 1 in {tgt}>\n[[2]] <line 2 in {tgt}>"
+        f"\n\n{rules}\n\nAnswer format:\n[[1]] <line 1 in {tgt}>\n[[2]] <line 2 in {tgt}>"
     )
 
 

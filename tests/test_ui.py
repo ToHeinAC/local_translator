@@ -36,7 +36,7 @@ class Env:
 
     def __init__(self, mp: pytest.MonkeyPatch, tmp: Path) -> None:
         self.llm: Callable[[str], str] = upper
-        self.installed = {"gemma4:e4b"}
+        self.installed = {"gemma4:e2b"}
         self.mp = mp
         st.cache_data.clear()  # the UI caches Ollama status calls across reruns
         for key in ENV_KEYS:
@@ -152,7 +152,7 @@ def test_same_source_and_target_language_is_blocked(env: Env) -> None:
 def test_missing_model_shows_the_pull_hint_and_blocks_start(env: Env) -> None:
     env.installed = set()
     at = _upload(env.app())
-    assert any("ollama pull gemma4:e4b" in w.value for w in at.warning)
+    assert any("ollama pull gemma4:e2b" in w.value for w in at.warning)
     assert at.button(key="start_btn").disabled
 
 
@@ -324,5 +324,5 @@ def test_job_uses_the_models_segment_size_unless_overridden(
     _translate(_upload(env.app()))
     monkeypatch.setenv("SEGMENT_CHARS", "777")
     _translate(_upload(env.app()))
-    standard = next(m for m in MODELS if m.tag == "gemma4:e4b")
-    assert seen == [standard.segment_chars, 777]
+    default = next(m for m in MODELS if m.tag == "gemma4:e2b")
+    assert seen == [default.segment_chars, 777]

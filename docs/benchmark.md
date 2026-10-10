@@ -113,5 +113,10 @@ check would count correct compounds as misses):
 - **Glossary misses are mostly counting artefacts:** "supervisory authorities" is not seen as
   "supervisory authority" (the suffix rule has no "-ies"). Real misses are near-synonyms, such
   as "interim storage" for "interim storage facility". The rate is 93 to 97 % for all models.
-- **Legal style:** all models render "Section 70" as "Abschnitt 70", not "§ 70". The PDF
-  reader found no headings in the StrlSchG PDF (all 2,715 blocks are paragraphs).
+- **Legal style:** all models render "Section 70" as "Abschnitt 70", not "§ 70". A glossary
+  entry is the remedy. The PDF reader found no headings in the StrlSchG PDF (all 2,715 blocks
+  are paragraphs).
+
+Changes made after this run: the tag rule is sent only for text that contains run tags
+(`prompt.py`); the registry drops `qwen3:14b` (slowest, most failed blocks), adds `qwen3:4b` as
+the simple model and makes `gemma4:e2b` the default (user decision).
