@@ -1,21 +1,23 @@
 """Manual benchmark (PRD M5 / NFR-6): time, calls, glossary hit rate and untranslated texts.
 
 Run against a real Ollama host:
-``uv run python -m app.benchmark [model ...] [--file doc.md --source en --target de]``.
+``uv run python -m app.benchmark [model ...] [--file doc.md --source en --target de]``
+(optional: ``--glossary terms.csv --out dir``).
 Without ``--file`` the synthetic DE→EN fixture is used.
 """
 
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from app.document import Block, Document, Kind
 from app.glossary import Glossary, build_glossary
 from app.lang import MIN_CHARS, detect_language
-from app.readers import read_document
+from app.readers import read_document, read_glossary_rows
 from app.segment import pack, plan_units
 from app.translate import Llm, translate_document
+from app.writers import write_md
 
 TERMS = [
     ("Abklingbecken", "spent fuel pool"),
@@ -51,6 +53,7 @@ class BenchResult:
     failed: int
     calls: int  # LLM requests, including retries and fallbacks
     untranslated: int  # texts of 40+ characters still detected as the source language
+    document: Document = field(default_factory=list[Block], compare=False, repr=False)
 
     @property
     def hit_rate(self) -> float:
@@ -77,9 +80,15 @@ def make_fixture(pages: int = 10) -> tuple[Document, Glossary]:
     return doc, glossary.glossary
 
 
-def load_document(path: str, source: str, target: str) -> tuple[Document, Glossary]:
-    """A real document for the benchmark, with an empty glossary for the language pair."""
-    return read_document(path, Path(path).read_bytes()), Glossary(source, target, ())
+def load_document(
+    path: str, source: str, target: str, glossary: str | None = None
+) -> tuple[Document, Glossary]:
+    """A real document for the benchmark, with its glossary file or an empty glossary."""
+    doc = read_document(path, Path(path).read_bytes())
+    if glossary is None:
+        return doc, Glossary(source, target, ())
+    rows = read_glossary_rows(glossary, Path(glossary).read_bytes())
+    return doc, build_glossary(rows, source, target).glossary
 
 
 def run_benchmark(
@@ -104,7 +113,9 @@ def run_benchmark(
     seconds = clock() - start
     left = _untranslated(result.document, glossary.source_lang)
     misses, failed = len(result.misses), len(result.failed)
-    return BenchResult(model, seconds, segments, result.hits, misses, failed, len(calls), left)
+    return BenchResult(
+        model, seconds, segments, result.hits, misses, failed, len(calls), left, result.document
+    )
 
 
 def _untranslated(doc: Document, source: str) -> int:
@@ -140,11 +151,15 @@ def main(argv: list[str]) -> None:  # pragma: no cover - needs a live Ollama hos
     parser.add_argument("--source", default="en")
     parser.add_argument("--target", default="de")
     parser.add_argument("--segment-chars", type=int, default=_SEGMENT_CHARS)
+    parser.add_argument("--glossary", help="glossary file for --file (csv/tsv/xlsx/md)")
+    parser.add_argument("--out", help="directory for the translated Markdown of each model")
     args = parser.parse_args(argv)
     host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
     client = make_client(host, float(os.getenv("LLM_TIMEOUT_S", "600")))
     doc, glossary = (
-        load_document(args.file, args.source, args.target) if args.file else make_fixture()
+        load_document(args.file, args.source, args.target, args.glossary)
+        if args.file
+        else make_fixture()
     )
     have = {t.lower() for t in installed_tags(client, host)}
     results: list[BenchResult] = []
@@ -153,6 +168,10 @@ def main(argv: list[str]) -> None:  # pragma: no cover - needs a live Ollama hos
         print(f"running {tag} ...", file=sys.stderr, flush=True)
         llm = make_llm(client, tag, host)
         results.append(run_benchmark(tag, llm, doc, glossary, segment_chars=args.segment_chars))
+        if args.out:
+            stem = Path(args.file or "fixture").stem
+            out = Path(args.out) / f"{stem}.{tag.replace(':', '_')}.{glossary.target_lang}.md"
+            out.write_bytes(write_md(results[-1].document))
     print(format_table(results))
 
 

@@ -57,3 +57,61 @@ Smaller segments make the small model both faster (fewer broken answers and retr
 segments) and more consistent; the 2 remaining are the false positives named above. The
 registry therefore uses 1,500 characters for `gemma4:e2b` and keeps 3,000 for `gemma4:e4b` and
 `qwen3:14b` (not measured at other sizes). `SEGMENT_CHARS` overrides all of them.
+
+## Legal texts, both directions (2026-10-10)
+
+Input: two statutes from the knowledge base `KB_BS_local-hybrid-researcher/kb/StrlSch__db_inserted/`:
+`AtG.pdf` (German original, 722 blocks, 186,000 characters, about 70 pages) DE→EN, and
+`strlschg_en_bf.pdf` (BfS English translation of the StrlSchG, 2,715 blocks, 465,000 characters,
+about 170 pages) EN→DE. Local Ollama on the RTX 4090 host, one run per model, models unloaded in
+between, each model at its registry segment size (e2b 1,500, others 3,000 characters):
+
+```
+uv run python -m app.benchmark <model> --file <pdf> --source de --target en \
+  --glossary atg_de_en.csv --segment-chars <n> --out data/bench
+```
+
+Glossaries (terms taken from the texts; StrlSchG terms from the BfS translation; terms that
+often start German compounds, such as "emergency" → "Notfall…", were left out because the
+check would count correct compounds as misses):
+
+- AtG DE→EN (11): Kernbrennstoff, Genehmigung (licence), Aufsichtsbehörde, Endlager
+  (repository), Zwischenlager (interim storage facility), Kernkraftwerk, Stilllegung,
+  Deckungsvorsorge (financial security), Schadensersatz (compensation), Sicherheitsüberprüfung
+  (safety review), Strahlenschutz.
+- StrlSchG EN→DE (10): radiation protection executive (Strahlenschutzverantwortliche),
+  radiation protection supervisor (Strahlenschutzbeauftragte), radiation protection register,
+  exposure situation, reference level, dose constraint (Dosisrichtwert), controlled area,
+  supervised area, clearance (Freigabe), contamination.
+
+| Document | Model | Time | Segments | Calls | Glossary hits | Missed | Hit rate | Failed | Untranslated |
+|---|---|---|---|---|---|---|---|---|---|
+| AtG DE→EN | gemma4:e2b | 186 s | 151 | 173 | 298 | 22 | 93% | 0 | 0 |
+| AtG DE→EN | gemma4:e4b | 308 s | 70 | 89 | 294 | 19 | 94% | 0 | 0 |
+| AtG DE→EN | qwen3:14b | 654 s | 70 | 92 | 294 | 21 | 93% | 2 | 3 |
+| StrlSchG EN→DE | gemma4:e2b | 597 s | 352 | 516 | 337 | 11 | 97% | 33 | 35 |
+| StrlSchG EN→DE | gemma4:e4b | 1,038 s | 165 | 289 | 337 | 18 | 95% | 3 | 2 |
+| StrlSchG EN→DE | qwen3:14b | 3,782 s | 165 | 223 | 337 | 23 | 93% | 35 | 14 |
+
+### Findings
+
+- **`gemma4:e4b` is the best default here:** few failures in both directions, about 14 pages
+  per minute DE→EN and 10 pages per minute EN→DE. But it has the tag leak below.
+- **`gemma4:e2b`** is fine DE→EN (fastest, nothing failed), but EN→DE it left about 35 blocks
+  in English, in runs of neighbouring blocks (whole segments, for example definitions (10) to
+  (12) of section 5 and list items 12 to 16), and needed 516 calls for 352 segments.
+- **`qwen3:14b`** gives the best wording (for example "das gewichtete Mittel" for "weighted
+  average", where e4b writes "das gewichtete Durchschnitt" and "Landesverordnung" for
+  "statutory ordinance"), but it is 2 to 3.6 times slower than e4b and failed on 35 StrlSchG
+  blocks, among them a run of 17 neighbouring blocks (sections 167 to 169) left in English. Why that stretch failed and
+  why the run took 63 minutes was not checked (no Ollama request log on this host).
+- **Tag leak (`gemma4:e4b` only):** it wraps words in `<b>…</b>` (copied literally, ellipsis
+  included) or `<a1>…</a1>`, mostly around glossary terms: 44 of 722 AtG blocks and 154 of
+  2,715 StrlSchG blocks. The tags come from the rule "Keep tags such as <b>…</b> …" that
+  `prompt.py` sends with every request, also for PDF/MD input that has no tags. They end up
+  verbatim in the MD and PDF output. Neither e2b nor qwen3 does this.
+- **Glossary misses are mostly counting artefacts:** "supervisory authorities" is not seen as
+  "supervisory authority" (the suffix rule has no "-ies"). Real misses are near-synonyms, such
+  as "interim storage" for "interim storage facility". The rate is 93 to 97 % for all models.
+- **Legal style:** all models render "Section 70" as "Abschnitt 70", not "§ 70". The PDF
+  reader found no headings in the StrlSchG PDF (all 2,715 blocks are paragraphs).

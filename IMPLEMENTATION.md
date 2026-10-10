@@ -44,7 +44,7 @@ One row per PRD milestone. Status: `planned`, `in progress`, `done`.
 | `src/app/translate.py` | `translate_document` with injected `llm`, retries, progress, cancel (M3). |
 | `src/app/models.py` | Model registry, default resolution, availability marks (M5). |
 | `src/app/llm_ollama.py` | Ollama adapter: chat (`think=False`), tags, unload, typed unreachable error (M5). |
-| `src/app/benchmark.py` | Synthetic fixture and benchmark runner (`python -m app.benchmark`). |
+| `src/app/benchmark.py` | Benchmark runner (`python -m app.benchmark`): synthetic fixture or `--file`, optional `--glossary`, `--out` for the translations. |
 | `src/app/inline.py` | Markdown inline text to formatted runs (shared by the writers, M6). |
 | `src/app/writers.py` | Output entry point: `write_md`, file names, MIME types; re-exports the writers (M6). |
 | `src/app/docx_writer.py` | `Document` to DOCX (python-docx, default template). |
@@ -87,3 +87,8 @@ One row per PRD milestone. Status: `planned`, `in progress`, `done`.
   [docs/benchmark.md](docs/benchmark.md). PRD M3 still says duplicated IDs make an answer
   unusable; adjacent duplicates are now accepted (see docs/architecture.md); the PRD wording
   needs the user's approval to change.
+- Legal-text benchmark (2026-10-10, AtG DE→EN, StrlSchG EN→DE, all 3 models): results in
+  [docs/benchmark.md](docs/benchmark.md). Open: `gemma4:e4b` copies the tag rule's `<b>…</b>`
+  and `<a1>` into about 6 % of blocks of PDF input (the prompt always sends that rule);
+  `gemma4:e2b` and `qwen3:14b` each leave about 1 % of StrlSchG EN→DE blocks failed, in runs
+  of neighbouring blocks; "Section" becomes "Abschnitt", not "§".

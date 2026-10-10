@@ -90,3 +90,17 @@ def test_document_benchmark_reads_a_file(tmp_path: Path) -> None:
     assert (glossary.source_lang, glossary.target_lang, glossary.entries) == ("de", "en", ())
     result = run_benchmark("m", _english, doc, glossary, segment_chars=500)
     assert result.untranslated == 0
+
+
+def test_document_benchmark_reads_a_glossary_file(tmp_path: Path) -> None:
+    path, terms = tmp_path / "doc.md", tmp_path / "terms.csv"
+    path.write_text("Die Freigabe wird von der Behörde geprüft und im Bericht dokumentiert.\n")
+    terms.write_text("de,en\nFreigabe,clearance\nBehörde,authority\n")
+    doc, glossary = load_document(str(path), "de", "en", str(terms))
+    assert [(e.source, e.target) for e in glossary.entries] == [
+        ("Freigabe", "clearance"),
+        ("Behörde", "authority"),
+    ]
+    result = run_benchmark("m", _english, doc, glossary)
+    assert result.hits == 2
+    assert result.document[0].text == "The plant is inspected by the authority every year."
