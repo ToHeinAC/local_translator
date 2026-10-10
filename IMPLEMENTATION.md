@@ -91,4 +91,4 @@ One row per PRD milestone. Status: `planned`, `in progress`, `done`.
   [docs/benchmark.md](docs/benchmark.md). Fixed since: tags leaked by `gemma4:e4b` (the tag
   rule now goes only with tagged text). Open: `gemma4:e2b` leaves about 1 % of StrlSchG EN→DE
   blocks failed, in runs of neighbouring blocks; "Section" becomes "Abschnitt", not "§"; a
-  rerun with the new registry (`qwen3:4b`, `gemma4:e2b`, `gemma4:e4b`) is pending.
+  rerun with the new registry (`gemma4:e2b`, `gemma4:e4b`) is pending.

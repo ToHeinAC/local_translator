@@ -21,7 +21,6 @@ class ModelStatus:
 
 
 MODELS = (
-    ModelInfo("simple", "qwen3:4b", "Einfach", 3, 1, 1500),
     ModelInfo("fast", "gemma4:e2b", "Schnell", 3, 1, 1500),
     ModelInfo("standard", "gemma4:e4b", "Standard", 2, 2, 3000),
 )

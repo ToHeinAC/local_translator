@@ -76,8 +76,8 @@ blocks, inline code, URLs, e-mail addresses, numbers with units, and placeholder
 identifies as the target language is copied unchanged (e.g. English quotes in a German text).
 Shorter paragraphs are always translated, because detection is unreliable for them.
 
-**FR-7 Model selection.** A dropdown with a fixed registry (§5.3): `qwen3:4b` (simple),
-`gemma4:e2b` (fast, default), `gemma4:e4b` (standard). The app checks `/api/tags` and marks
+**FR-7 Model selection.** A dropdown with a fixed registry (§5.3): `gemma4:e2b` (fast,
+default), `gemma4:e4b` (standard). The app checks `/api/tags` and marks
 missing models with the hint `ollama pull <tag>`. Thinking/reasoning output is disabled for all
 models.
 
@@ -190,7 +190,6 @@ number of blocks, the same kinds, heading levels, list depths and table shapes a
 
 | Key | Tag | Label (de) | Speed | Quality | Default |
 |---|---|---|---|---|---|
-| simple | `qwen3:4b` | Einfach | ★★★ | ★☆☆ | |
 | fast | `gemma4:e2b` | Schnell | ★★★ | ★☆☆ | yes |
 | standard | `gemma4:e4b` | Standard | ★★☆ | ★★☆ | |
 
@@ -361,7 +360,7 @@ Each milestone ends with the full gate green and becomes one phase row in IMPLEM
 ### M5 — Ollama adapter and model registry
 - **Deliverable:** `llm_ollama.py`, `models.py`.
 - **Acceptance criteria:**
-  - The registry contains exactly the three models from §5.3, with `gemma4:e2b` as the default.
+  - The registry contains exactly the two models from §5.3, with `gemma4:e2b` as the default.
     An invalid `DEFAULT_MODEL` falls back to it with a warning.
   - Requests carry `think=False`, `temperature=0.1`, `num_ctx=8192` and a timeout of
     `LLM_TIMEOUT_S` (tested against a stub client, no network).
@@ -466,7 +465,7 @@ Each milestone ends with the full gate green and becomes one phase row in IMPLEM
 | D-6 | Glossary misses are reported, never blocking. In the DOCX the paragraph is highlighted yellow. |
 | D-7 | Paragraphs ≥ 40 characters already in the target language are copied unchanged. |
 | D-8 | 9 target languages in Latin script; OCR for scanned PDFs deferred to M10. |
-| D-9 | One prompt for all three models; only parameters differ. No LangGraph. |
+| D-9 | One prompt for all registry models; only parameters differ. No LangGraph. |
 | D-10 | Login as in the summarizer; path `/trns/`; port 8560. "App beenden" only for `ADMIN_USERS` (default "T. Hein"), no automatic restart. |
 | D-11 | No stored history; results live only in the session. |
 | D-12 | Metadata: title = file name, language = target, author = logged-in user (rebuilt DOCX); in-place DOCX keeps its properties except the language tag. |
@@ -482,7 +481,7 @@ Each milestone ends with the full gate green and becomes one phase row in IMPLEM
 | R-3 | PDF structure recovery from font sizes is heuristic. | Accept as best effort (non-goal: layout). DOCX/MD are the recommended inputs; the UI says so. |
 | R-4 | Throughput: long documents may take > 15 min (about 170 pages: 17 min on `gemma4:e4b`). | Progress, cancel, and benchmark numbers in the UI tooltip. Shared GPU with the summarizer: Ollama queues requests. |
 | R-5 | Target languages outside Latin script need other fonts. | Out of scope (§4). The target language list is fixed in code. |
-| R-6 | Assumption: the Ollama host has all three models pulled (verified on 2026-10-08 on the dev machine). | Availability check (FR-7). |
+| R-6 | Assumption: the Ollama host has all registry models pulled (verified on 2026-10-08 on the dev machine). | Availability check (FR-7). |
 | R-7 | Assumption: the app runs on `172.16.4.112` like the other apps, reached only through nginx. | Documented in `docs/deployment.md`. |
 | R-8 | Upstream changes to the summarizer theme drift from the copy. | Copy once; note the source commit in THIRD_PARTY_NOTICES/docs. Shared package only if a third app needs it. |
 

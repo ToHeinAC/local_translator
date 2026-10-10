@@ -118,5 +118,7 @@ check would count correct compounds as misses):
   are paragraphs).
 
 Changes made after this run: the tag rule is sent only for text that contains run tags
-(`prompt.py`); the registry drops `qwen3:14b` (slowest, most failed blocks), adds `qwen3:4b` as
-the simple model and makes `gemma4:e2b` the default (user decision).
+(`prompt.py`); the registry drops `qwen3:14b` (slowest, most failed blocks) and makes `gemma4:e2b` the default
+(user decision). `qwen3:4b` was tried as a third model and dropped: it is the reasoning variant,
+ignores `think=False` and writes its reasoning into the answer without `<think>` tags (about
+5,000 tokens for one sentence).
