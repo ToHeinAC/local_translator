@@ -88,7 +88,7 @@ One row per PRD milestone. Status: `planned`, `in progress`, `done`.
   unusable; adjacent duplicates are now accepted (see docs/architecture.md); the PRD wording
   needs the user's approval to change.
 - Legal-text benchmark (2026-10-10, AtG DE→EN, StrlSchG EN→DE, all 3 models): results in
-  [docs/benchmark.md](docs/benchmark.md). Fixed since: tags leaked by `gemma4:e4b` (the tag
-  rule now goes only with tagged text). Open: `gemma4:e2b` leaves about 1 % of StrlSchG EN→DE
-  blocks failed, in runs of neighbouring blocks; "Section" becomes "Abschnitt", not "§"; a
-  rerun with the new registry (`gemma4:e2b`, `gemma4:e4b`) is pending.
+  [docs/benchmark.md](docs/benchmark.md). Fixed and verified by a rerun: tags leaked by
+  `gemma4:e4b` (the tag rule now goes only with tagged text). Open: the default `gemma4:e2b`
+  leaves 20 of 2,715 StrlSchG EN→DE blocks failed, in runs of neighbouring blocks
+  (`gemma4:e4b`: 0); "Section" becomes "Abschnitt", not "§".

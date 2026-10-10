@@ -122,3 +122,24 @@ Changes made after this run: the tag rule is sent only for text that contains ru
 (user decision). `qwen3:4b` was tried as a third model and dropped: it is the reasoning variant,
 ignores `think=False` and writes its reasoning into the answer without `<think>` tags (about
 5,000 tokens for one sentence).
+
+### Rerun after the fixes (2026-10-10)
+
+Same inputs, glossaries and command; registry models only; the tag rule is now sent only with
+tagged text. "Tag blocks" counts output blocks that contain `<b>`, `<i>`, `<u>` or `<aN>` tags.
+
+| Document | Model | Time | Segments | Calls | Glossary hits | Missed | Hit rate | Failed | Untranslated | Tag blocks |
+|---|---|---|---|---|---|---|---|---|---|---|
+| AtG DE→EN | gemma4:e2b | 189 s | 151 | 178 | 298 | 20 | 93% | 0 | 0 | 0 |
+| AtG DE→EN | gemma4:e4b | 320 s | 70 | 92 | 294 | 19 | 94% | 0 | 0 | 0 (44 before) |
+| StrlSchG EN→DE | gemma4:e2b | 616 s | 352 | 548 | 337 | 14 | 96% | 20 | 21 | 0 |
+| StrlSchG EN→DE | gemma4:e4b | 974 s | 165 | 285 | 337 | 11 | 97% | 0 | 2 | 0 (154 before) |
+
+- **Tag leak fixed:** no output block contains tags; time and hit rate are unchanged.
+- **`gemma4:e4b`** has no failed blocks in either direction now (3 before); its 2 untranslated
+  texts are the titles of "Division 6" and "Part 6", whose labels the PDF reader extracts with
+  spaced letters ("Di v i s i o n 6"). Its wording slips remain ("das gewichtete
+  Durchschnitt", "Landesverordnung").
+- **`gemma4:e2b`** (the new default) still fails on 20 StrlSchG EN→DE blocks (33 before; one run
+  each, so part of the difference may be noise). For long English source texts, `gemma4:e4b`
+  remains the safer choice.
