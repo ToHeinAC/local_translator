@@ -394,3 +394,32 @@ def test_failed_and_abandoned_jobs_are_logged(env: Env) -> None:
     handle.join(30)
     ends = [e["status"] for e in _events(env) if e["event"] == "job_end"]
     assert ends == ["error", "abandoned"]
+
+
+def _seed_log(env: Env) -> None:
+    for user, event, fields in [
+        ("T. Hein", "login_ok", {}),
+        ("Gast", "job_start", {}),
+        ("Gast", "job_end", {"status": "ok", "duration_s": 90.0}),
+        ("x", "login_failed", {}),
+    ]:
+        usage.log_event(env.data_dir, event, user, **fields)
+
+
+def test_usage_statistics_are_for_admins_only(env: Env) -> None:
+    _seed_log(env)
+    assert "Nutzungsstatistik" not in [e.label for e in env.app("Gast").expander]
+    at = env.app("T. Hein")
+    assert "Nutzungsstatistik" in [e.label for e in at.expander]
+    assert at.get("plotly_chart")
+    assert {m.label for m in at.metric} >= {"Aktive Benutzer", "Aufträge"}
+    assert any("Gast" in str(df.value) for df in at.dataframe)
+    at.select_slider(key="stats_period").set_value("period_week").run()
+    at.selectbox(key="stats_metric").set_value("minutes").run()
+    at.toggle(key="stats_by_user").set_value(False).run()
+    assert not at.exception
+    assert at.get("plotly_chart")
+
+
+def test_usage_statistics_without_a_log_say_so(env: Env) -> None:
+    assert any("Noch keine Nutzungsdaten" in i.value for i in env.app("T. Hein").info)

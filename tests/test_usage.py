@@ -31,3 +31,11 @@ def test_a_write_error_never_reaches_the_caller(tmp_path: Path) -> None:
     blocked.write_text("not a directory")
     log_event(blocked, "login_ok", "x")  # must not raise
     assert blocked.read_text() == "not a directory"
+
+
+def test_a_broken_line_is_skipped(tmp_path: Path) -> None:
+    log_event(tmp_path, "login_ok", "a")
+    with (tmp_path / FILE_NAME).open("a") as f:
+        f.write('{"ts": "kaputt\n')
+    log_event(tmp_path, "logout", "a")
+    assert [e["event"] for e in read_events(tmp_path)] == ["login_ok", "logout"]

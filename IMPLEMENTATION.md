@@ -57,6 +57,9 @@ One row per PRD milestone. Status: `planned`, `in progress`, `done`.
 | `src/app/config.py` | `load_config`: environment keys to `Config` (M8). |
 | `src/app/auth.py` | bcrypt user store in `data/users.json` (M8). |
 | `src/app/usage.py` | Usage log `data/usage.jsonl`: logins, jobs, downloads as JSON lines. |
+| `src/app/usage_stats.py` | Pure aggregation of the usage log: period filter, per day/user, totals, fixed user colors. |
+| `src/app/usage_chart.py` | Plotly stacked bar chart per day (total or per user). |
+| `src/app/ui_stats.py` | Admin-only "Nutzungsstatistik" expander: period slider, metric, per-user split, table. |
 | `src/app/i18n.py` | DE/EN string catalogue, `t()` (M8). |
 | `src/app/theme.py` | FOREST palette and CSS, copied from the summarizer (M8). |
 | `src/app/ui.py` | Streamlit entry point: widgets wired to the pipeline (M8). |

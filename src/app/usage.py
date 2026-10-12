@@ -40,8 +40,14 @@ def log_event(
 
 
 def read_events(data_dir: Path) -> list[dict[str, Any]]:
-    """All logged events in order; empty if there is no log yet."""
+    """All logged events in order; empty if there is no log yet. Broken lines are skipped."""
     path = data_dir / FILE_NAME
     if not path.exists():
         return []
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+    events: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            events.append(json.loads(line))
+        except ValueError:
+            continue
+    return events

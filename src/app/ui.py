@@ -37,6 +37,7 @@ from app.pipeline import (
 from app.prompt import SUPPORTED_LANGUAGES
 from app.readers import read_glossary_rows
 from app.runner import JobHandle, Progress
+from app.ui_stats import stats_panel
 from app.writers import glossary_template_xlsx, mime_type, output_name
 
 ACCEPTED = ["docx", "md", "txt", "pdf"]
@@ -508,6 +509,8 @@ def main() -> None:
     _login_gate(cfg, lang)
     _sidebar(cfg, lang)
     st.title(t("app_title", lang))
+    if _state()["user"] in cfg.admins:
+        stats_panel(cfg.data_dir, lang)
     _main_panel(cfg, lang)
 
 

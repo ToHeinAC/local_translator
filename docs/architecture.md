@@ -189,7 +189,13 @@ The gate itself is defined once, in `.pre-commit-config.yaml`. The Stop hook and
   ok/cancelled/error/abandoned, `duration_s`, `failed_blocks` for ok/cancelled); `download`
   (`format` md/docx/pdf/report). No passwords, file names or text. A write error is
   ignored so logging never blocks the app. Read it with `usage.read_events` or
-  `pandas.read_json(path, lines=True)`.
+  `pandas.read_json(path, lines=True)`; broken lines are skipped.
+- **Usage statistics:** admins (`ADMIN_USERS`, default "T. Hein") get a collapsed
+  "Nutzungsstatistik" expander above the main panel (`ui_stats.py`). A slider picks the
+  period (all, 30 days, 7 days), a select box the metric (jobs, translation minutes, logins,
+  downloads), a toggle the split by user. It shows KPI tiles, a stacked daily bar chart and a
+  per-user table. User colors come from the full log in order of first appearance, so a period
+  change never repaints a user; beyond eight users the rest fold into "Andere".
 - **Admin options:** show loaded models with their VRAM (Ollama `ps`) and "VRAM leeren"
   (`keep_alive=0`). Unlike the summarizer there is no GPU pinning.
 
