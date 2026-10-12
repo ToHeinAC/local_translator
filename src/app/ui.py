@@ -373,6 +373,7 @@ def _main_panel(cfg: Config, lang: str) -> None:
     target = _language_select(
         right, "target_caption", "target_label", cfg.default_target, "target", lang
     )
+    st.markdown("---")
     doc_col, gloss_col = st.columns(2)
     doc_col.caption(t("document_caption", lang))
     upload = doc_col.file_uploader(
