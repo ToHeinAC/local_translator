@@ -56,6 +56,7 @@ One row per PRD milestone. Status: `planned`, `in progress`, `done`.
 | `src/app/runner.py` | `JobHandle`: background thread with progress and cancel (M8). |
 | `src/app/config.py` | `load_config`: environment keys to `Config` (M8). |
 | `src/app/auth.py` | bcrypt user store in `data/users.json` (M8). |
+| `src/app/usage.py` | Usage log `data/usage.jsonl`: logins, jobs, downloads as JSON lines. |
 | `src/app/i18n.py` | DE/EN string catalogue, `t()` (M8). |
 | `src/app/theme.py` | FOREST palette and CSS, copied from the summarizer (M8). |
 | `src/app/ui.py` | Streamlit entry point: widgets wired to the pipeline (M8). |

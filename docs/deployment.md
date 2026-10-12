@@ -9,7 +9,7 @@ orchestrator and nginx files live in `local_app-orchestrator` and are changed th
 | Port | 8560 | `.streamlit/config.toml` |
 | Base path | `trns` (public URL `https://ai.brenk.com/trns/`, trailing slash) | `.streamlit/config.toml` |
 | Entry point | `uv run streamlit run src/app/ui.py` | [IMPLEMENTATION.md](../IMPLEMENTATION.md) |
-| Secrets | `.env` (`SEED_PW_*`), users in `data/users.json` | [.env.example](../.env.example) |
+| Secrets | `.env` (`SEED_PW_*`), users in `data/users.json`, usage log in `data/usage.jsonl` | [.env.example](../.env.example) |
 
 `tests/test_deployment.py` keeps the two snippets below consistent with the Streamlit config.
 

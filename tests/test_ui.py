@@ -1,4 +1,5 @@
 import ast
+import json
 import os
 import re
 import signal
@@ -13,7 +14,7 @@ import pytest
 import streamlit as st
 from streamlit.testing.v1 import AppTest
 
-from app import llm_ollama, theme
+from app import llm_ollama, theme, usage
 from app.i18n import LANGUAGE_NAMES, STRINGS
 from app.prompt import BODY_MARKER, SUPPORTED_LANGUAGES
 
@@ -38,6 +39,7 @@ class Env:
         self.llm: Callable[[str], str] = upper
         self.installed = {"gemma4:e2b"}
         self.mp = mp
+        self.data_dir = tmp
         st.cache_data.clear()  # the UI caches Ollama status calls across reruns
         for key in ENV_KEYS:
             mp.setenv(key, "")
@@ -62,6 +64,10 @@ def env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Env:
 def _upload(at: AppTest, name: str = "bericht.md", data: bytes = GERMAN.encode()) -> AppTest:
     at.file_uploader[0].upload(name, data)
     return at.run()
+
+
+def _events(env: "Env") -> list[dict[str, Any]]:
+    return usage.read_events(env.data_dir)
 
 
 def _translate(at: AppTest) -> AppTest:
@@ -326,3 +332,65 @@ def test_job_uses_the_models_segment_size_unless_overridden(
     _translate(_upload(env.app()))
     default = next(m for m in MODELS if m.tag == "gemma4:e2b")
     assert seen == [default.segment_chars, 777]
+
+
+def test_login_attempts_and_logout_are_logged(env: Env, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SEED_PW_HEIN", "geheim")
+    at = env.app(user=None)
+    at.text_input[0].input("T. Hein")
+    at.text_input[1].input("falsch")
+    at.button[0].click()
+    at.run()
+    at.text_input[1].input("geheim")
+    at.button[0].click()
+    at.run()
+    at.sidebar.button(key="logout_btn").click()
+    at.run()
+    events = _events(env)
+    assert [(e["event"], e["user"]) for e in events] == [
+        ("login_failed", "T. Hein"),
+        ("login_ok", "T. Hein"),
+        ("logout", "T. Hein"),
+    ]
+    assert events[1]["session"]
+    assert events[1]["session"] == events[2]["session"]
+    assert "geheim" not in json.dumps(events)
+    assert "falsch" not in json.dumps(events)
+
+
+def test_jobs_and_downloads_are_logged_without_the_file_name(env: Env) -> None:
+    at = _upload(env.app("Gast"), name="geheimbericht.md")
+    at.file_uploader[1].upload("g.csv", GLOSSARY)
+    at.run()
+    at = _translate(at)
+    at.download_button(key="dl_docx").click()
+    at.run()
+    start, end, download = _events(env)
+    assert (start["event"], start["user"]) == ("job_start", "Gast")
+    assert start["model"] == "gemma4:e2b"
+    assert (start["source"], start["target"], start["file_type"]) == ("de", "en", "md")
+    assert start["size_kb"] >= 0
+    assert start["glossary_terms"] == 1
+    assert (end["event"], end["status"], end["failed_blocks"]) == ("job_end", "ok", 0)
+    assert end["duration_s"] >= 0
+    assert (download["event"], download["format"]) == ("download", "docx")
+    assert "geheimbericht" not in json.dumps(_events(env))
+
+
+def test_failed_and_abandoned_jobs_are_logged(env: Env) -> None:
+    def broken(_prompt: str) -> str:
+        raise llm_ollama.OllamaUnavailableError("http://x")
+
+    env.llm = broken
+    _translate(_upload(env.app()))
+    gate = threading.Event()
+    env.llm = lambda p: (gate.wait(10), upper(p))[1]
+    at = _upload(env.app())
+    at.button(key="start_btn").click()
+    at.run()
+    handle = at.session_state["job"]
+    _upload(at, name="neu.md")  # a new upload drops the running job
+    gate.set()
+    handle.join(30)
+    ends = [e["status"] for e in _events(env) if e["event"] == "job_end"]
+    assert ends == ["error", "abandoned"]

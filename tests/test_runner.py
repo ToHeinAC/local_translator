@@ -69,3 +69,11 @@ def test_handle_knows_its_model_and_elapsed_time() -> None:
     handle.join()
     assert handle.label == "gemma4:e4b"
     assert handle.elapsed == "01:05"
+
+
+def test_duration_stops_when_the_work_ends() -> None:
+    ticks = iter([100.0, 112.5, 999.0])  # start, end of work, a later poll
+    handle = JobHandle(lambda progress, cancel: None, clock=lambda: next(ticks))  # type: ignore[arg-type]
+    handle.start()
+    handle.join()
+    assert handle.duration_s == 12.5

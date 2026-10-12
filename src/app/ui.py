@@ -7,13 +7,14 @@ Layout and look follow the summarizer (PRD §5.5).
 """
 
 import os
+import secrets
 import signal
 from typing import Any
 
 import streamlit as st
 from dotenv import load_dotenv
 
-from app import auth, llm_ollama, theme
+from app import auth, llm_ollama, theme, usage
 from app.config import Config, load_config
 from app.glossary import (
     GLOSSARY_TEMPLATE_CSV,
@@ -53,6 +54,11 @@ def _state() -> Any:
     return st.session_state
 
 
+def _log(cfg: Config, event: str, **fields: Any) -> None:
+    user, session = _state().get("user", ""), _state().get("session", "")
+    usage.log_event(cfg.data_dir, event, user, session=session, **fields)
+
+
 def _language_toggle(container: Any) -> None:
     """A button that switches the GUI to the other language."""
     other = next(code for code in LANGUAGES if code != _state()["ui_lang"])
@@ -79,9 +85,11 @@ def _login_gate(cfg: Config, lang: str) -> None:
             password = st.text_input(t("password", lang), type="password")
             submitted = st.form_submit_button(t("sign_in", lang), type="primary")
         if submitted and auth.verify(cfg.data_dir, username, password):
-            _state()["user"] = username
+            _state()["user"], _state()["session"] = username, secrets.token_hex(4)
+            _log(cfg, "login_ok")
             st.rerun()
         elif submitted:
+            usage.log_event(cfg.data_dir, "login_failed", username)
             st.error(t("bad_credentials", lang))
         _language_toggle(mid)
     st.stop()
@@ -111,7 +119,8 @@ def _sidebar(cfg: Config, lang: str) -> None:
     user = _state()["user"]
     st.sidebar.caption(t("signed_in_as", lang, user=user))
     if st.sidebar.button(t("logout", lang), key="logout_btn"):
-        _cancel_job()
+        _cancel_job(cfg)
+        _log(cfg, "logout")
         _state().clear()
         _state()["ui_lang"] = lang
         st.rerun()
@@ -201,17 +210,18 @@ def _upload_key(upload: Any) -> str:
     return f"{upload.name}:{upload.size}:{getattr(upload, 'file_id', '')}"
 
 
-def _cancel_job() -> None:
-    handle = _state().pop("job", None)
+def _cancel_job(cfg: Config) -> None:
+    handle: JobHandle | None = _state().pop("job", None)
     if handle is not None:
         handle.request_cancel()
+        _log(cfg, "job_end", status="abandoned", duration_s=round(handle.duration_s, 1))
 
 
 def _inspect(upload: Any, cfg: Config, lang: str) -> tuple[str, UploadInfo | None]:
     """The upload's key and its info; a new upload clears the old job and results."""
     key = _upload_key(upload)
     if _state().get("upload_key") != key:
-        _cancel_job()
+        _cancel_job(cfg)
         for name in ("result", "job_error", "info"):
             _state().pop(name, None)
         _state()["upload_key"] = key
@@ -277,17 +287,32 @@ def _start(cfg: Config, upload: Any, status: ModelStatus, glossary: Glossary) ->
     handle = JobHandle(work, label=status.info.tag)
     handle.start()
     _state()["job"] = handle
+    _log(
+        cfg,
+        "job_start",
+        model=status.info.tag,
+        source=glossary.source_lang,
+        target=glossary.target_lang,
+        file_type=name.rsplit(".", 1)[-1].lower(),
+        size_kb=round(len(data) / 1024, 1),
+        glossary_terms=len(glossary.entries),
+    )
 
 
-def _collect_finished_job() -> None:
+def _collect_finished_job(cfg: Config) -> None:
     handle: JobHandle | None = _state().get("job")
     if handle is None or not handle.finished:
         return
     del _state()["job"]
-    if handle.error is not None:
+    result = handle.result
+    if handle.error is not None or result is None:
         _state()["job_error"] = str(handle.error)
+        status, failed = "error", 0
     else:
-        _state()["result"] = handle.result
+        _state()["result"] = result
+        status, failed = ("cancelled" if result.cancelled else "ok"), len(result.marked)
+    duration = round(handle.duration_s, 1)
+    _log(cfg, "job_end", status=status, duration_s=duration, failed_blocks=failed)
 
 
 @st.fragment(run_every=1)
@@ -307,7 +332,11 @@ def _job_panel(lang: str) -> None:
         st.caption(t("cancelling", lang))
 
 
-def _show_result(result: JobResult, lang: str) -> None:
+def _log_download(cfg: Config, fmt: str) -> None:
+    _log(cfg, "download", format=fmt)
+
+
+def _show_result(cfg: Config, result: JobResult, lang: str) -> None:
     st.markdown("---")
     st.subheader(t("result_heading", lang))
     if result.cancelled:
@@ -321,11 +350,13 @@ def _show_result(result: JobResult, lang: str) -> None:
             file_name=output_name(result.stem, result.target, ext),
             mime=mime_type(ext),
             key=f"dl_{ext}",
+            on_click=_log_download,
+            args=(cfg, ext),
             use_container_width=True,
         )
     with st.container(height=_PREVIEW_HEIGHT, border=True):
         st.markdown(preview_markdown(result))
-    _term_report(result, lang)
+    _term_report(cfg, result, lang)
 
 
 def _result_notices(result: JobResult, lang: str) -> None:
@@ -341,7 +372,7 @@ def _result_notices(result: JobResult, lang: str) -> None:
         st.info(t("untouched_features", lang, features=names))
 
 
-def _term_report(result: JobResult, lang: str) -> None:
+def _term_report(cfg: Config, result: JobResult, lang: str) -> None:
     with st.expander(t("term_report", lang), expanded=bool(result.translation.misses)):
         st.markdown(t("term_counts", lang, hits=result.hits, enforced=result.enforced))
         if result.translation.misses:
@@ -362,6 +393,8 @@ def _term_report(result: JobResult, lang: str) -> None:
             file_name=f"{result.stem}_report.csv",
             mime="text/csv",
             key="dl_report",
+            on_click=_log_download,
+            args=(cfg, "report"),
         )
 
 
@@ -399,8 +432,8 @@ def _main_panel(cfg: Config, lang: str) -> None:
     )
     if upload is not None:
         _upload_flow(cfg, lang, upload, gloss_upload, status, target)
-    _collect_finished_job()
-    _outcome(lang)
+    _collect_finished_job(cfg)
+    _outcome(cfg, lang)
 
 
 def _upload_flow(
@@ -447,13 +480,13 @@ def _block_reason(same: bool, bad_glossary: bool, installed: bool, lang: str) ->
     return ""
 
 
-def _outcome(lang: str) -> None:
+def _outcome(cfg: Config, lang: str) -> None:
     if "job" in _state():
         _job_panel(lang)
     elif error := _state().get("job_error"):
         st.error(t("job_failed", lang, error=error))
     elif result := _state().get("result"):
-        _show_result(result, lang)
+        _show_result(cfg, result, lang)
 
 
 def main() -> None:

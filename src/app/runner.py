@@ -19,6 +19,7 @@ class JobHandle:
         self._work = work
         self._clock = clock
         self._start = 0.0
+        self._end: float | None = None
         self.label = label  # shown next to the progress, e.g. the model tag
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._cancel = threading.Event()
@@ -46,9 +47,15 @@ class JobHandle:
         return self._started and not self._thread.is_alive()
 
     @property
+    def duration_s(self) -> float:
+        """Seconds from start to the end of the work (or to now while it runs)."""
+        end = self._end if self._end is not None else self._clock()
+        return end - self._start
+
+    @property
     def elapsed(self) -> str:
-        """Time since start as ``mm:ss``."""
-        minutes, seconds = divmod(int(self._clock() - self._start), 60)
+        """``duration_s`` as ``mm:ss``."""
+        minutes, seconds = divmod(int(self.duration_s), 60)
         return f"{minutes:02d}:{seconds:02d}"
 
     def join(self, timeout: float | None = None) -> None:
@@ -62,3 +69,5 @@ class JobHandle:
             self.result = self._work(self._progress, self._cancel.is_set)
         except Exception as exc:
             self.error = exc
+        finally:
+            self._end = self._clock()

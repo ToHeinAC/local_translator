@@ -181,6 +181,15 @@ The gate itself is defined once, in `.pre-commit-config.yaml`. The Stop hook and
 - **Login:** `auth.ensure_seeded` creates `data/users.json` once from `SEED_PW_*`; an empty or
   unreadable store denies everyone. "App beenden" (admins from `ADMIN_USERS`) sends SIGTERM to
   its own PID after a confirmation.
+- **Usage log:** `usage.log_event` appends one JSON line per event to `data/usage.jsonl`
+  (gitignored, never in the repo). Every line has `ts` (local ISO time with offset), `event`,
+  `user` and, after login, `session` (random 8-hex id per login). Events and extra fields:
+  `login_ok`; `login_failed` (`user` is the name typed); `logout`; `job_start` (`model`,
+  `source`, `target`, `file_type`, `size_kb`, `glossary_terms`); `job_end` (`status`
+  ok/cancelled/error/abandoned, `duration_s`, `failed_blocks` for ok/cancelled); `download`
+  (`format` md/docx/pdf/report). No passwords, file names or text. A write error is
+  ignored so logging never blocks the app. Read it with `usage.read_events` or
+  `pandas.read_json(path, lines=True)`.
 - **Admin options:** show loaded models with their VRAM (Ollama `ps`) and "VRAM leeren"
   (`keep_alive=0`). Unlike the summarizer there is no GPU pinning.
 
