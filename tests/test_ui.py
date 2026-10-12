@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parent.parent
 UI = ROOT / "src" / "app" / "ui.py"
 ENV_KEYS = [
     "OLLAMA_HOST", "DEFAULT_MODEL", "DEFAULT_TARGET_LANG", "SEGMENT_CHARS", "MAX_UPLOAD_MB",
-    "LLM_TIMEOUT_S", "SEED_PW_HEIN", "SEED_PW_GAST", "ADMIN_USERS", "DATA_DIR",
+    "LLM_TIMEOUT_S", "SEED_PW_HEIN", "SEED_PW_GAST", "SEED_PW_BRENK", "ADMIN_USERS", "DATA_DIR",
 ]  # fmt: skip
 GERMAN = "Der schnelle braune Fuchs springt über den faulen Hund am Flussufer."
 GLOSSARY = b"de,en\nFuchs,vixen\n"

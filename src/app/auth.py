@@ -7,7 +7,11 @@ from pathlib import Path
 import bcrypt
 
 #: username -> environment variable holding that account's seed password.
-SEED_USERS = {"T. Hein": "SEED_PW_HEIN", "Gast": "SEED_PW_GAST"}
+SEED_USERS = {
+    "T. Hein": "SEED_PW_HEIN",
+    "Gast": "SEED_PW_GAST",
+    "Brenk": "SEED_PW_BRENK",
+}
 
 
 def _file(data_dir: Path) -> Path:

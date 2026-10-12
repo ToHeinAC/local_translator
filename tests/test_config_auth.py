@@ -44,12 +44,13 @@ def test_config_rejects_bad_numbers_and_languages() -> None:
 
 
 def test_seeding_hashes_passwords_and_verify_checks_them(tmp_path: Path) -> None:
-    env = {"SEED_PW_HEIN": "geheim", "SEED_PW_GAST": "gast"}
+    env = {"SEED_PW_HEIN": "geheim", "SEED_PW_GAST": "gast", "SEED_PW_BRENK": "brenk"}
     ensure_seeded(tmp_path, env)
     stored = json.loads((tmp_path / "users.json").read_text())
     assert "geheim" not in json.dumps(stored)
     assert verify(tmp_path, "T. Hein", "geheim")
     assert verify(tmp_path, "Gast", "gast")
+    assert verify(tmp_path, "Brenk", "brenk")
     assert not verify(tmp_path, "T. Hein", "falsch")
     assert not verify(tmp_path, "Unbekannt", "geheim")
 
