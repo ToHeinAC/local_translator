@@ -79,7 +79,7 @@ STRINGS: dict[str, dict[str, str]] = {
     "target_label": {"de": "Zielsprache", "en": "Target language"},
     "document_caption": {"de": "DOKUMENT", "en": "DOCUMENT"},
     "document_label": {"de": "Dokument", "en": "Document"},
-    "glossary_caption": {"de": "GLOSSAR (OPTIONAL)", "en": "GLOSSARY (OPTIONAL)"},
+    "glossary_caption": {"de": "GLOSSAR (OPTIONAL - definierte Fachausdrücke für Übersetzung)", "en": "GLOSSARY (OPTIONAL)"},
     "glossary_label": {"de": "Glossar", "en": "Glossary"},
     "glossary_template": {"de": "Glossar-Vorlage (CSV)", "en": "Glossary template (CSV)"},
     "glossary_template_xlsx": {"de": "Glossar-Vorlage (Excel)", "en": "Glossary template (Excel)"},
