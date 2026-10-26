@@ -38,6 +38,7 @@ from app.pipeline import (
 from app.prompt import SUPPORTED_LANGUAGES
 from app.readers import read_glossary_rows
 from app.runner import JobHandle, Progress
+from app.translate import REVIEW_ROUNDS
 from app.ui_stats import stats_panel
 from app.writers import glossary_template_xlsx, mime_type, output_name
 
@@ -322,16 +323,29 @@ def _job_panel(lang: str) -> None:
     handle: JobHandle = _state()["job"]
     if handle.finished:
         st.rerun()
-    if handle.total:
-        text = t("progress", lang, done=handle.done, total=handle.total)
+    working = t("working_review" if handle.review else "working_translate", lang)
+    st.markdown(f'<span class="trns-spinner"></span>{working}', unsafe_allow_html=True)
+    value, text = _progress_text(handle, lang)
+    if handle.total or handle.review:
         text += f" · {handle.label} · {handle.elapsed}"
-        st.progress(handle.done / handle.total, text=text)
-    else:
-        st.progress(0.0, text=t("preparing", lang))
+    st.progress(value, text=text)
     if st.button(t("cancel_button", lang), key="cancel_btn"):
         handle.request_cancel()
     if handle.cancel_requested:
         st.caption(t("cancelling", lang))
+
+
+def _progress_text(handle: JobHandle, lang: str) -> tuple[float, str]:
+    """Bar value and caption: translation sections, then the language review rounds."""
+    share = handle.done / handle.total if handle.total else 0.0
+    if handle.review:
+        rounds = {"round": handle.review, "rounds": REVIEW_ROUNDS}
+        if not handle.total:
+            return 0.0, t("review_checking", lang, **rounds)
+        return share, t("review_progress", lang, done=handle.done, total=handle.total, **rounds)
+    if handle.total:
+        return share, t("progress", lang, done=handle.done, total=handle.total)
+    return 0.0, t("preparing", lang)
 
 
 def _log_download(cfg: Config, fmt: str) -> None:

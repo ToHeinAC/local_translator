@@ -141,11 +141,9 @@ def test_exception_leaves_segment_in_source_and_job_finishes(error: Exception) -
 
 def test_progress_is_monotonic_and_ends_complete() -> None:
     doc = [Block(Kind.PARAGRAPH, t) for t in ("Eins", "Zwei", "Drei")]
-    seen: list[tuple[int, int]] = []
-    translate_document(
-        doc, EMPTY, Fake(), progress=lambda d, t: seen.append((d, t)), segment_chars=5
-    )
-    assert seen == [(1, 3), (2, 3), (3, 3)]
+    seen: list[tuple[int, ...]] = []
+    translate_document(doc, EMPTY, Fake(), progress=lambda *a: seen.append(a), segment_chars=5)
+    assert seen == [(1, 3), (2, 3), (3, 3), (0, 0, 1)]  # one review check, nothing to redo
 
 
 def test_cancel_stops_after_current_segment() -> None:
@@ -394,3 +392,14 @@ def test_no_review_after_cancel() -> None:
     result = translate_document(doc, EMPTY, fake, cancel=lambda: True, segment_chars=80)
     assert result.cancelled
     assert len(fake.prompts) == 2
+
+
+def test_review_rounds_are_reported_as_progress() -> None:
+    seen: list[tuple[int, ...]] = []
+    translate_document(
+        [Block(Kind.PARAGRAPH, f"{ECHO_DE} {NEXT_DE}")],
+        EMPTY,
+        Fake(_answers(MIXED)),
+        progress=lambda *args: seen.append(args),
+    )
+    assert seen == [(1, 1), (0, 0, 1), (1, 1, 1), (0, 0, 2), (1, 1, 2)]

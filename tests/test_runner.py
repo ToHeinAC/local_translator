@@ -77,3 +77,15 @@ def test_duration_stops_when_the_work_ends() -> None:
     handle.start()
     handle.join()
     assert handle.duration_s == 12.5
+
+
+def test_handle_records_the_review_round() -> None:
+    def work(progress, cancel):  # type: ignore[no-untyped-def]
+        progress(3, 3)
+        progress(1, 4, 2)
+        return None
+
+    handle = JobHandle(work)  # type: ignore[arg-type]
+    handle.start()
+    handle.join()
+    assert (handle.done, handle.total, handle.review) == (1, 4, 2)

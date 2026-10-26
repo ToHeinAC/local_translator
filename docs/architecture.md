@@ -108,8 +108,9 @@ The gate itself is defined once, in `.pre-commit-config.yaml`. The Stop hook and
   segment to echo too (the cascade behind the "first 70 % English" report).
 - **Term check is per unit**, so a miss is attributed to its block (needed for the DOCX
   highlight in M7). `hits` counts matched entries per unit; `enforced = hits - misses`.
-- **Progress** is `progress(done, total)` so the UI can show "Abschnitt n von N"; cancel is
-  checked after each segment.
+- **Progress** is `progress(done, total, review=0)` so the UI can show "Abschnitt n von N";
+  during the language review `review` is the round, `(0, 0, r)` while round r checks the text,
+  then `(n, N, r)` per retranslated passage. Cancel is checked after each segment.
 
 ## Input readers (`readers.py`, `docx_reader.py`, `pdf_reader.py`)
 
@@ -170,11 +171,11 @@ The gate itself is defined once, in `.pre-commit-config.yaml`. The Stop hook and
   without Streamlit. `AppTest` drives the script with a stubbed `llm_ollama`.
 - **Job:** `run_job` sends `.docx` through `translate_docx`, everything else through
   `read_document` + `translate_document` + `write_docx`. MD and PDF are always built from the
-  translated `Document`. `report_csv` lists term misses, failed blocks, `language` rows (mixed blocks) and
-  untouched features.
+  translated `Document`. `report_csv` lists term misses, failed blocks, `language` rows (mixed
+  blocks) and untouched features.
 - **Background run:** `JobHandle` runs the job on a daemon thread; the thread never calls
-  Streamlit. A `st.fragment(run_every=1)` polls it for the progress bar and the cancel button
-  and triggers a full rerun when it finishes. The start button is disabled while a handle exists,
+  Streamlit. A `st.fragment(run_every=1)` polls it for a CSS spinner (`.trns-spinner` in
+  `theme.py`), the progress bar and the cancel button, and triggers a full rerun when it finishes. The start button is disabled while a handle exists,
   which prevents a second job. Uploads are held in memory only, so there is no temp dir to clean.
 - **Result panel:** passages left in the source language (`pipeline.failed_excerpts`) and
   passages still mixed after the review (`pipeline.mixed_excerpts`) are listed above the

@@ -3,6 +3,7 @@
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, replace
+from typing import Protocol
 
 from app.document import Block, Document, Kind
 from app.glossary import Entry, Glossary, Match
@@ -14,6 +15,13 @@ Llm = Callable[[str], str]
 Context = tuple[str, str]  # (source, translation) of the previous segment's last unit
 Key = tuple[int, Cell | None]
 REVIEW_ROUNDS = 2  # language review passes after the translation (unit by unit)
+
+
+class Progress(Protocol):
+    """``done`` of ``total`` steps; ``review`` is 0 while translating, else the review round
+    (``total`` 0 while that round checks the text)."""
+
+    def __call__(self, done: int, total: int, review: int = 0, /) -> None: ...
 
 
 class FatalLlmError(RuntimeError):
@@ -46,7 +54,7 @@ def translate_document(
     glossary: Glossary,
     llm: Llm,
     *,
-    progress: Callable[[int, int], None] | None = None,
+    progress: Progress | None = None,
     cancel: Callable[[], bool] | None = None,
     segment_chars: int = 3000,
 ) -> TranslationResult:
@@ -65,7 +73,7 @@ def translate_document(
         if n < len(segments) and cancel and cancel():
             cancelled = True
             break
-    mixed = () if cancelled else job.review(done)
+    mixed = () if cancelled else job.review(done, progress)
     translated = _translations(units, job.done, job.failed)
     failed = tuple(sorted({block for block, _ in job.failed}))
     misses = [m for idx in sorted(job.misses) for m in job.misses[idx]]
@@ -96,14 +104,20 @@ class _Job:
         self._record(segment, matches, outs)
         return self._next_context(segment, outs, context)
 
-    def review(self, units: list[Unit]) -> tuple[int, ...]:
+    def review(self, units: list[Unit], progress: Progress | None) -> tuple[int, ...]:
         """Retranslate units that still read as the source language, one by one and without
         context; returns the blocks that still contain source-language text afterwards."""
         todo = units
-        for _ in range(REVIEW_ROUNDS):
+        for round_no in range(1, REVIEW_ROUNDS + 1):
+            if progress:
+                progress(0, 0, round_no)
             todo = [u for u in todo if self._score(u, self.done.get(u.idx))]
-            for unit in todo:
+            if not todo:
+                break
+            for n, unit in enumerate(todo, start=1):
                 self._redo(unit)
+                if progress:
+                    progress(n, len(todo), round_no)
         self.failed = {(u.block, u.cell) for u in units if u.idx not in self.done}
         failed = {block for block, _ in self.failed}
         flagged = {u.block for u in todo if u.idx in self.done and self._score(u, self.done[u.idx])}

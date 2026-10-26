@@ -24,7 +24,7 @@ from app.document import Block, Document, DocumentReadError, Kind
 from app.docx_reader import read_docx
 from app.glossary import Glossary
 from app.run_tags import Piece, decode, encode, strip_tags, tag_counts
-from app.translate import Llm, TranslationResult, translate_document
+from app.translate import Llm, Progress, TranslationResult, translate_document
 
 _P, _R, _T, _RPR = qn("w:p"), qn("w:r"), qn("w:t"), qn("w:rPr")
 _LINK, _BR, _TYPE = qn("w:hyperlink"), qn("w:br"), qn("w:type")
@@ -70,7 +70,7 @@ def translate_docx(
     glossary: Glossary,
     llm: Llm,
     *,
-    progress: Callable[[int, int], None] | None = None,
+    progress: Progress | None = None,
     cancel: Callable[[], bool] | None = None,
     segment_chars: int = 3000,
 ) -> InplaceResult:

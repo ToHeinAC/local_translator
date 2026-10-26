@@ -143,6 +143,16 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "preparing": {"de": "Wird vorbereitet …", "en": "Preparing …"},
     "progress": {"de": "Abschnitt {done} von {total}", "en": "Section {done} of {total}"},
+    "review_checking": {
+        "de": "Sprachprüfung (Runde {round} von {rounds}): Text wird geprüft …",
+        "en": "Language review (round {round} of {rounds}): checking the text …",
+    },
+    "review_progress": {
+        "de": "Sprachprüfung (Runde {round} von {rounds}): Stelle {done} von {total}",
+        "en": "Language review (round {round} of {rounds}): passage {done} of {total}",
+    },
+    "working_translate": {"de": "Übersetzung läuft …", "en": "Translating …"},
+    "working_review": {"de": "Sprachprüfung läuft …", "en": "Language review running …"},
     "job_failed": {
         "de": "Übersetzung fehlgeschlagen: {error}",
         "en": "Translation failed: {error}",

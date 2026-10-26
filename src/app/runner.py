@@ -5,8 +5,8 @@ import time
 from collections.abc import Callable
 
 from app.pipeline import JobResult
+from app.translate import Progress
 
-Progress = Callable[[int, int], None]
 Work = Callable[[Progress, Callable[[], bool]], JobResult]
 
 
@@ -26,6 +26,7 @@ class JobHandle:
         self._started = False
         self.done = 0
         self.total = 0
+        self.review = 0  # review round, 0 while translating
         self.result: JobResult | None = None
         self.error: Exception | None = None
 
@@ -61,8 +62,8 @@ class JobHandle:
     def join(self, timeout: float | None = None) -> None:
         self._thread.join(timeout)
 
-    def _progress(self, done: int, total: int) -> None:
-        self.done, self.total = done, total
+    def _progress(self, done: int, total: int, review: int = 0) -> None:
+        self.done, self.total, self.review = done, total, review
 
     def _run(self) -> None:
         try:

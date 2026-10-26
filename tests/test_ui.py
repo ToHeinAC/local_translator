@@ -433,3 +433,32 @@ def test_passages_still_in_the_source_language_after_review_are_listed(env: Env)
     warnings = " ".join(w.value for w in at.warning)
     assert "Quellsprache" in warnings
     assert mixed[:60] in warnings
+
+
+def test_progress_shows_the_review_round_and_a_spinner(env: Env) -> None:
+    gate = threading.Event()
+    calls: list[str] = []
+    mixed = f"The fox jumps over the dog on the river bank today. {GERMAN}"
+
+    def llm(prompt: str) -> str:
+        calls.append(prompt)
+        if len(calls) > 2:
+            gate.wait(10)
+        return f"[[1]] {mixed}"
+
+    env.llm = llm
+    at = _upload(env.app(), data=f"{GERMAN} Noch ein Satz.".encode())
+    at.button(key="start_btn").click()
+    at.run()
+    handle = at.session_state["job"]
+    for _ in range(100):
+        if handle.review:
+            break
+        threading.Event().wait(0.05)
+    at.run()
+    assert any(
+        f"Sprachprüfung (Runde {handle.review} von 2)" in p.proto.text for p in at.get("progress")
+    )
+    assert any("trns-spinner" in m.value for m in at.markdown)
+    gate.set()
+    handle.join(30)

@@ -12,7 +12,7 @@ from app.glossary import Glossary
 from app.lang import detect_language
 from app.readers import read_document
 from app.run_tags import strip_tags
-from app.translate import Llm, TranslationResult, translate_document
+from app.translate import Llm, Progress, TranslationResult, translate_document
 from app.writers import write_docx, write_md, write_pdf
 
 _EXCERPT = 80
@@ -66,7 +66,7 @@ def run_job(
     llm: Llm,
     *,
     user: str,
-    progress: Callable[[int, int], None] | None = None,
+    progress: Progress | None = None,
     cancel: Callable[[], bool] | None = None,
     segment_chars: int = 3000,
 ) -> JobResult:

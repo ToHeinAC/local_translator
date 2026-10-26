@@ -146,6 +146,14 @@ _CSS = Template(
         background-color: {t["primary"]} !important;
     }
 
+    .trns-spinner {
+        display: inline-block; width: 1rem; height: 1rem; margin-right: 0.5rem;
+        vertical-align: -0.15rem; border-radius: 50%;
+        border: 3px solid ${border}; border-top-color: ${primary};
+        animation: trns-spin 0.8s linear infinite;
+    }
+    @keyframes trns-spin { to { transform: rotate(360deg); } }
+
     .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
     </style>
     """
