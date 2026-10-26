@@ -1,8 +1,9 @@
 from datetime import date
 
+from test_usage_stats import EVENTS, ev
+
 from app.usage_chart import daily_figure
 from app.usage_stats import OTHER, PALETTE, user_colors, users_in_order
-from test_usage_stats import EVENTS, ev
 
 
 def _bars(fig):  # type: ignore[no-untyped-def]

@@ -11,7 +11,9 @@ _GRID = "#e4e8e5"
 _MUTED = "#5a6b5e"
 
 
-def _series(events: list[Event], metric: str, names: dict[str, str] | None, total: str) -> dict[str, dict[Any, float]]:
+def _series(
+    events: list[Event], metric: str, names: dict[str, str] | None, total: str
+) -> dict[str, dict[Any, float]]:
     """Series name -> {day: value}; per user in ``names`` order, or one total series."""
     out: dict[str, dict[Any, float]] = {n: {} for n in (names or {}).values()}
     for (day, user), value in sorted(daily(events, metric).items()):
@@ -35,7 +37,10 @@ def daily_figure(
                 name=name,
                 x=list(values),
                 y=list(values.values()),
-                marker={"color": colors.get(name, PALETTE[0]), "line": {"color": _SURFACE, "width": 2}},
+                marker={
+                    "color": colors.get(name, PALETTE[0]),
+                    "line": {"color": _SURFACE, "width": 2},
+                },
                 hovertemplate=f"<b>{name}</b><br>%{{x|%d.%m.%Y}}: %{{y:.4~g}}<extra></extra>",
             )
         )
