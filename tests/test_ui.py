@@ -462,3 +462,9 @@ def test_progress_shows_the_review_round_and_a_spinner(env: Env) -> None:
     assert any("trns-spinner" in m.value for m in at.markdown)
     gate.set()
     handle.join(30)
+
+
+def test_theme_css_has_every_palette_color_filled_in() -> None:
+    css = theme.build_css()
+    assert "{t[" not in css
+    assert f"color: {theme.FOREST['text']} !important" in css
