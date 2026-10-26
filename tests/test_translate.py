@@ -195,15 +195,16 @@ def test_fatal_llm_error_aborts_the_job() -> None:
 
 
 GERMAN_LINE = "Der schnelle braune Fuchs springt über den faulen Hund am Flussufer."
+EN_LINE = "The quick brown fox jumps over the lazy dog on the river bank."
 
 
 def test_echoed_line_is_retried_with_a_translate_everything_instruction() -> None:
     def handler(prompt: str) -> str:
-        return body(prompt) if STRICT_MARKER not in prompt else body(prompt).upper()
+        return body(prompt) if STRICT_MARKER not in prompt else f"[[1]] {EN_LINE}"
 
     fake = Fake(handler)
     result = translate_document([Block(Kind.PARAGRAPH, GERMAN_LINE)], EMPTY, fake)
-    assert result.document[0].text == GERMAN_LINE.upper()
+    assert result.document[0].text == EN_LINE
     assert result.failed == ()
     assert len(fake.prompts) == 2
     assert "Translate every line completely into English" in fake.prompts[1]
@@ -330,3 +331,66 @@ def test_paragraphs_already_in_the_target_language_are_not_sent() -> None:
     assert english not in "".join(fake.prompts)
     assert result.document[0].text == english
     assert result.document[1].text == "This is the translated line."
+
+
+MIXED = f"{EN_LINE} {NEXT_DE}"
+
+
+def _answers(*answers: str):
+    """Answer in the given order; the last answer repeats."""
+    queue = list(answers)
+
+    def handler(_prompt: str) -> str:
+        return f"[[1]] {queue.pop(0) if len(queue) > 1 else queue[0]}"
+
+    return handler
+
+
+def test_review_retranslates_a_unit_left_in_the_source_language() -> None:
+    fake = Fake(_answers(GERMAN_LINE, GERMAN_LINE, EN_LINE))
+    result = translate_document([Block(Kind.PARAGRAPH, GERMAN_LINE)], EMPTY, fake)
+    assert result.document[0].text == EN_LINE
+    assert (result.failed, result.mixed) == ((), ())
+    review = fake.prompts[2]
+    assert "Translate every line completely into English" in review
+    assert "Context" not in review
+
+
+def test_review_fixes_a_sentence_left_in_the_source_language() -> None:
+    fake = Fake(_answers(MIXED, MIXED, EN_LINE))
+    doc = [Block(Kind.PARAGRAPH, f"{GERMAN_LINE} {NEXT_DE}")]
+    result = translate_document(doc, EMPTY, fake)
+    assert result.document[0].text == EN_LINE
+    assert len(fake.prompts) == 3
+
+
+def test_review_gives_up_after_two_rounds_and_reports_the_block() -> None:
+    fake = Fake(_answers(MIXED))
+    result = translate_document([Block(Kind.PARAGRAPH, f"{ECHO_DE} {NEXT_DE}")], EMPTY, fake)
+    assert len(fake.prompts) == 2 + 2  # first call and retry, then two review rounds
+    assert result.document[0].text == MIXED  # mostly translated, so it is kept
+    assert (result.failed, result.mixed) == ((), (0,))
+
+
+def test_review_keeps_the_better_answer() -> None:
+    fake = Fake(_answers(MIXED, MIXED, GERMAN_LINE))
+    result = translate_document([Block(Kind.PARAGRAPH, f"{ECHO_DE} {NEXT_DE}")], EMPTY, fake)
+    assert result.document[0].text == MIXED
+    assert result.mixed == (0,)
+
+
+def test_review_replaces_the_glossary_misses_of_a_fixed_unit() -> None:
+    source = "Die Freigabe der Anlage wird nach der Prüfung durch den Gutachter erteilt."
+    fixed = "The clearance of the plant is granted after the inspection by the expert."
+    fake = Fake(_answers(source, source, fixed))
+    result = translate_document([Block(Kind.PARAGRAPH, source)], _glossary(), fake)
+    assert result.document[0].text == fixed
+    assert (result.hits, result.misses) == (1, [])
+
+
+def test_no_review_after_cancel() -> None:
+    doc = [Block(Kind.PARAGRAPH, GERMAN_LINE), Block(Kind.PARAGRAPH, NEXT_DE)]
+    fake = Fake(lambda prompt: body(prompt))
+    result = translate_document(doc, EMPTY, fake, cancel=lambda: True, segment_chars=80)
+    assert result.cancelled
+    assert len(fake.prompts) == 2

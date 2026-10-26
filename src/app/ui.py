@@ -30,6 +30,7 @@ from app.pipeline import (
     UploadInfo,
     failed_excerpts,
     inspect_upload,
+    mixed_excerpts,
     preview_markdown,
     report_csv,
     run_job,
@@ -362,12 +363,15 @@ def _show_result(cfg: Config, result: JobResult, lang: str) -> None:
 
 def _result_notices(result: JobResult, lang: str) -> None:
     """What stayed in the source language, above the downloads so it cannot be missed."""
-    excerpts = failed_excerpts(result)
-    if excerpts:
-        listed = "\n".join(f"- {e}" for e in excerpts[:_MAX_LISTED])
-        more = len(excerpts) - _MAX_LISTED
-        tail = "\n" + t("and_more", lang, n=more) if more > 0 else ""
-        st.warning(t("failed_blocks", lang, n=len(excerpts)) + "\n\n" + listed + tail)
+    for key, excerpts in (
+        ("failed_blocks", failed_excerpts(result)),
+        ("mixed_blocks", mixed_excerpts(result)),
+    ):
+        if excerpts:
+            listed = "\n".join(f"- {e}" for e in excerpts[:_MAX_LISTED])
+            more = len(excerpts) - _MAX_LISTED
+            tail = "\n" + t("and_more", lang, n=more) if more > 0 else ""
+            st.warning(t(key, lang, n=len(excerpts)) + "\n\n" + listed + tail)
     if result.untouched:
         names = ", ".join(t(f"feature_{f}", lang) for f in result.untouched)
         st.info(t("untouched_features", lang, features=names))

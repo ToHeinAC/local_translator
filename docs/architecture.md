@@ -96,6 +96,13 @@ The gate itself is defined once, in `.pre-commit-config.yaml`. The Stop hook and
   whole segment (so short lines count too). The strict retry then adds "Translate every line
   completely into <language>". A long answer still identical to the source is listed in
   `failed` (term misses kept), unless it is mostly capitalised words (names, titles).
+- **Language review** (after the last segment, skipped on cancel): every translated unit is
+  checked again, as a whole and per sentence of 40+ characters (`lang.has_source_sentence`).
+  Failed units and units with source-language text left are retranslated one by one, without
+  context, with the strict "translate everything" prompt; at most `REVIEW_ROUNDS` = 2 rounds.
+  A new answer replaces the old one only if it is cleaner (untranslated > mixed > clean), and
+  then also replaces that unit's term misses. Blocks still mixed afterwards are kept (mostly
+  translated) and listed in `TranslationResult.mixed`; this is an addition beyond PRD FR-10.
 - **Context:** the last unit of the previous segment is passed on only if its segment passed
   the language check. An echoed answer is never used as context, which would prime the next
   segment to echo too (the cascade behind the "first 70 % English" report).
@@ -145,14 +152,14 @@ The gate itself is defined once, in `.pre-commit-config.yaml`. The Stop hook and
 - **Units:** a text group is a run of adjacent plain text runs and hyperlinks inside one paragraph
   (body, table cells at any depth, header/footer unless linked). Images, fields (including field
   results and TOC hyperlinks), page breaks and other elements end a group and stay in place.
-  Each group goes through `translate_document` as a paragraph block, so `failed` and `misses`
-  index groups, not `document` blocks.
+  Each group goes through `translate_document` as a paragraph block, so `failed`, `mixed` and
+  `misses` index groups, not `document` blocks.
 - **Tags:** bold/italic/underline become `<b> <i> <u>`, the n-th hyperlink `<an>`. A translation is
   accepted only if it is balanced and has exactly the source's opening tags; otherwise the group
   becomes one run with the first run's formatting and hyperlinks in it are flattened to text.
 - **Write-back:** new runs are copies of the source run with the same formatting, inserted where
   the group started; hyperlink elements (and so their targets) are reused.
-- **Misses** highlight every run of the paragraph yellow. Texts already in the target language
+- **Misses** and `mixed` groups highlight every run of the paragraph yellow. Texts already in the target language
   are skipped by `plan_units` (see translation core).
 - **Untouched and reported:** footnotes, endnotes, comments, text boxes. Only the core-property
   language changes.
@@ -163,13 +170,15 @@ The gate itself is defined once, in `.pre-commit-config.yaml`. The Stop hook and
   without Streamlit. `AppTest` drives the script with a stubbed `llm_ollama`.
 - **Job:** `run_job` sends `.docx` through `translate_docx`, everything else through
   `read_document` + `translate_document` + `write_docx`. MD and PDF are always built from the
-  translated `Document`. `report_csv` lists term misses, failed blocks and untouched features.
+  translated `Document`. `report_csv` lists term misses, failed blocks, `language` rows (mixed blocks) and
+  untouched features.
 - **Background run:** `JobHandle` runs the job on a daemon thread; the thread never calls
   Streamlit. A `st.fragment(run_every=1)` polls it for the progress bar and the cancel button
   and triggers a full rerun when it finishes. The start button is disabled while a handle exists,
   which prevents a second job. Uploads are held in memory only, so there is no temp dir to clean.
-- **Result panel:** passages left in the source language are listed above the downloads
-  (`pipeline.failed_excerpts`) and marked ⚠️ in the preview (`pipeline.preview_markdown`, only
+- **Result panel:** passages left in the source language (`pipeline.failed_excerpts`) and
+  passages still mixed after the review (`pipeline.mixed_excerpts`) are listed above the
+  downloads and marked ⚠️ in the preview (`pipeline.preview_markdown`, only
   for rebuilt documents; DOCX failures index text groups). The preview escapes `$` so Streamlit
   does not render amounts as LaTeX; the downloads are unaffected.
 - **Ollama calls:** chat requests use `keep_alive="30m"`, so a long job does not reload the
@@ -186,7 +195,7 @@ The gate itself is defined once, in `.pre-commit-config.yaml`. The Stop hook and
   `user` and, after login, `session` (random 8-hex id per login). Events and extra fields:
   `login_ok`; `login_failed` (`user` is the name typed); `logout`; `job_start` (`model`,
   `source`, `target`, `file_type`, `size_kb`, `glossary_terms`); `job_end` (`status`
-  ok/cancelled/error/abandoned, `duration_s`, `failed_blocks` for ok/cancelled); `download`
+  ok/cancelled/error/abandoned, `duration_s`, `failed_blocks` = failed plus mixed blocks of a rebuilt document, for ok/cancelled); `download`
   (`format` md/docx/pdf/report). No passwords, file names or text. A write error is
   ignored so logging never blocks the app. Read it with `usage.read_events` or
   `pandas.read_json(path, lines=True)`; broken lines are skipped.

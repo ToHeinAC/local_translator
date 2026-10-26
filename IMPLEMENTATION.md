@@ -41,7 +41,7 @@ One row per PRD milestone. Status: `planned`, `in progress`, `done`.
 | `src/app/pdf_reader.py` | Text-layer PDF to blocks (pdfplumber), heading levels from font size. |
 | `src/app/segment.py` | Units, packing, protected spans, `[[n]]` wire format (M3). |
 | `src/app/prompt.py` | English prompt builder (M3). |
-| `src/app/translate.py` | `translate_document` with injected `llm`, retries, progress, cancel (M3). |
+| `src/app/translate.py` | `translate_document` with injected `llm`, retries, language review, progress, cancel (M3). |
 | `src/app/models.py` | Model registry, default resolution, availability marks (M5). |
 | `src/app/llm_ollama.py` | Ollama adapter: chat (`think=False`), tags, unload, typed unreachable error (M5). |
 | `src/app/benchmark.py` | Benchmark runner (`python -m app.benchmark`): synthetic fixture or `--file`, optional `--glossary`, `--out` for the translations. |
@@ -50,7 +50,7 @@ One row per PRD milestone. Status: `planned`, `in progress`, `done`.
 | `src/app/docx_writer.py` | `Document` to DOCX (python-docx, default template). |
 | `src/app/pdf_writer.py` | `Document` to PDF (reportlab, DejaVu fonts in `src/app/fonts/`). |
 | `src/app/run_tags.py` | Run formatting as `<b>/<i>/<u>/<aN>` tags: encode, validate, decode (M7). |
-| `src/app/lang.py` | `is_in_language`: langdetect check for the skip rule (M7). |
+| `src/app/lang.py` | langdetect checks: skip rule (M7), untranslated output, source sentences left. |
 | `src/app/docx_inplace.py` | `translate_docx`: translate a DOCX in place (M7). |
 | `src/app/pipeline.py` | `run_job` (file bytes to md/docx/pdf), `inspect_upload`, `report_csv` (M8). |
 | `src/app/runner.py` | `JobHandle`: background thread with progress and cancel (M8). |
@@ -96,3 +96,7 @@ One row per PRD milestone. Status: `planned`, `in progress`, `done`.
   `gemma4:e4b` (the tag rule now goes only with tagged text). Open: the default `gemma4:e2b`
   leaves 20 of 2,715 StrlSchG EN→DE blocks failed, in runs of neighbouring blocks
   (`gemma4:e4b`: 0); "Section" becomes "Abschnitt", not "§".
+- Language review (user report: passages left in the source language): a review pass after the
+  translation retranslates affected units and reports what is still mixed (see
+  docs/architecture.md). Tested with fake models only; not yet measured on a real model. Not in
+  the PRD yet: adding it to FR-10/M3 needs the user's approval.

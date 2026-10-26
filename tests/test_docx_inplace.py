@@ -249,3 +249,20 @@ def test_failed_paragraphs_keep_the_source_text() -> None:
 def test_corrupt_input_raises_read_error() -> None:
     with pytest.raises(DocumentReadError):
         _run(b"not a zip")
+
+
+def test_paragraph_still_mixed_after_review_is_highlighted() -> None:
+    de = "Der schnelle braune Fuchs springt über den faulen Hund am Flussufer."
+    d = new_docx()
+    d.add_paragraph(f"{de} Und noch mehr.")
+    d.add_paragraph("Ohne Begriff")
+
+    def mixed(prompt: str) -> str:
+        text = prompt.split(BODY_MARKER, 1)[1]
+        return f"[[1]] {EN} {de}" if "Fuchs" in text else text.upper()
+
+    result = translate_docx(_save(d), EMPTY, mixed)
+    assert result.translation.mixed == (0,)
+    out = _out(result)
+    assert out.paragraphs[0].runs[0].font.highlight_color == WD_COLOR_INDEX.YELLOW
+    assert out.paragraphs[1].runs[0].font.highlight_color is None

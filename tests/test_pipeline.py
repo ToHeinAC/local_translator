@@ -125,3 +125,21 @@ def test_preview_marks_failed_blocks_and_lists_their_excerpts() -> None:
 def test_preview_escapes_dollar_signs() -> None:
     result = _job("a.md", b"Kosten 700 $ und 900 $\n")
     assert r"700 \$ UND 900 \$" in preview_markdown(result)
+
+
+MIXED = "The fox jumps over the dog on the river bank today. " + GERMAN
+
+
+def _mixed(prompt: str) -> str:
+    return f"[[1]] {MIXED}" if "Fuchs" in prompt.split(BODY_MARKER, 1)[1] else upper(prompt)
+
+
+def test_passages_with_source_text_left_after_review_are_reported_and_marked() -> None:
+    from app.pipeline import mixed_excerpts
+
+    result = _job("a.md", f"# Titel\n\n{GERMAN} Noch ein Satz.\n".encode(), llm=_mixed)
+    assert result.translation.mixed == (1,)
+    assert mixed_excerpts(result) == [MIXED[:80]]
+    rows = list(csv.reader(io.StringIO(report_csv(result).decode("utf-8-sig"))))
+    assert ["language", MIXED[:80], "", ""] in rows
+    assert f"⚠️ {MIXED}" in preview_markdown(result)

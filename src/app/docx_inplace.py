@@ -85,7 +85,7 @@ def translate_docx(
     for slot, block in zip(slots, result.document, strict=True):
         if block.text != slot.tagged:
             _apply(slot, block.text)
-    for index in {m.block for m in result.misses}:
+    for index in {m.block for m in result.misses} | set(result.mixed):
         _highlight(slots[index].par)
     doc.core_properties.language = glossary.target_lang
     out = io.BytesIO()

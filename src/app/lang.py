@@ -4,13 +4,17 @@
 # pyright: reportUnknownVariableType=false, reportUnknownMemberType=false
 # pyright: reportMissingTypeStubs=false, reportUnknownArgumentType=false
 
+import re
+
 from langdetect import DetectorFactory, detect
 from langdetect.lang_detect_exception import LangDetectException
 
 from app.prompt import SUPPORTED_LANGUAGES
+from app.run_tags import strip_tags
 
 DetectorFactory.seed = 0
 MIN_CHARS = 40
+_SENTENCE = re.compile(r"(?<=[.!?])\s+|\n+")
 
 
 def is_in_language(text: str, lang: str) -> bool:
@@ -39,3 +43,9 @@ def looks_untranslated(source: str, output: str, source_lang: str, target_lang: 
     return " ".join(output.split()) == " ".join(source.split()) or (
         detect_language(output) == source_lang
     )
+
+
+def has_source_sentence(text: str, source_lang: str) -> bool:
+    """True if any sentence of 40+ characters in ``text`` is detected as ``source_lang``."""
+    sentences = _SENTENCE.split(strip_tags(text))
+    return any(len(s) >= MIN_CHARS and detect_language(s) == source_lang for s in sentences)

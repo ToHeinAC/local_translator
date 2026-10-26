@@ -169,6 +169,12 @@ STRINGS: dict[str, dict[str, str]] = {
         "de": "{n} Textstelle(n) blieben in der Quellsprache (in der Vorschau mit ⚠️ markiert):",
         "en": "{n} passage(s) stayed in the source language (marked ⚠️ in the preview):",
     },
+    "mixed_blocks": {
+        "de": "{n} Textstelle(n) enthalten nach der Sprachprüfung noch Quellsprache "
+        "(im DOCX gelb, in der Vorschau mit ⚠️ markiert):",
+        "en": "{n} passage(s) still contain source-language text after the language review "
+        "(yellow in the DOCX, marked ⚠️ in the preview):",
+    },
     "and_more": {"de": "… und {n} weitere (siehe Bericht)", "en": "… and {n} more (see report)"},
     "untouched_features": {
         "de": "Nicht übersetzt (bleibt in der Quellsprache): {features}",

@@ -6,13 +6,14 @@ from dataclasses import dataclass, replace
 
 from app.document import Block, Document, Kind
 from app.glossary import Entry, Glossary, Match
-from app.lang import MIN_CHARS, looks_untranslated
+from app.lang import MIN_CHARS, has_source_sentence, looks_untranslated
 from app.prompt import build_prompt
 from app.segment import Cell, Encoded, Unit, decode_segment, encode_segment, pack, plan_units
 
 Llm = Callable[[str], str]
 Context = tuple[str, str]  # (source, translation) of the previous segment's last unit
 Key = tuple[int, Cell | None]
+REVIEW_ROUNDS = 2  # language review passes after the translation (unit by unit)
 
 
 class FatalLlmError(RuntimeError):
@@ -33,6 +34,7 @@ class TranslationResult:
     failed: tuple[int, ...]  # block indices left in the source language
     hits: int  # glossary entries found in the source, per unit
     cancelled: bool
+    mixed: tuple[int, ...] = ()  # translated blocks that still contain source-language text
 
     @property
     def enforced(self) -> int:
@@ -54,16 +56,21 @@ def translate_document(
     job = _Job(glossary, llm)
     context: Context | None = None
     cancelled = False
+    done: list[Unit] = []
     for n, segment in enumerate(segments, start=1):
         context = job.run(segment, context)
+        done += segment
         if progress:
             progress(n, len(segments))
         if n < len(segments) and cancel and cancel():
             cancelled = True
             break
+    mixed = () if cancelled else job.review(done)
     translated = _translations(units, job.done, job.failed)
     failed = tuple(sorted({block for block, _ in job.failed}))
-    return TranslationResult(_assemble(doc, translated), job.misses, failed, job.hits, cancelled)
+    misses = [m for idx in sorted(job.misses) for m in job.misses[idx]]
+    document = _assemble(doc, translated)
+    return TranslationResult(document, misses, failed, job.hits, cancelled, mixed)
 
 
 class _Job:
@@ -72,7 +79,7 @@ class _Job:
         self.llm = llm
         self.done: dict[int, str] = {}
         self.failed: set[Key] = set()
-        self.misses: list[TermMiss] = []
+        self.misses: dict[int, list[TermMiss]] = {}  # per unit, so a review can replace them
         self.hits = 0
 
     def run(self, segment: list[Unit], context: Context | None) -> Context | None:
@@ -88,6 +95,39 @@ class _Job:
             outs = [None] * len(segment)
         self._record(segment, matches, outs)
         return self._next_context(segment, outs, context)
+
+    def review(self, units: list[Unit]) -> tuple[int, ...]:
+        """Retranslate units that still read as the source language, one by one and without
+        context; returns the blocks that still contain source-language text afterwards."""
+        todo = units
+        for _ in range(REVIEW_ROUNDS):
+            todo = [u for u in todo if self._score(u, self.done.get(u.idx))]
+            for unit in todo:
+                self._redo(unit)
+        self.failed = {(u.block, u.cell) for u in units if u.idx not in self.done}
+        failed = {block for block, _ in self.failed}
+        flagged = {u.block for u in todo if u.idx in self.done and self._score(u, self.done[u.idx])}
+        return tuple(sorted(flagged - failed))
+
+    def _redo(self, unit: Unit) -> None:
+        """One strict single-unit call; the answer replaces the old one only if it is cleaner."""
+        found = [self.glossary.match(unit.text)]
+        try:
+            outs = self._call(encode_segment([unit]), _entries(found), None, True, [], True)
+        except FatalLlmError:
+            raise
+        except Exception:
+            outs = None
+        old = self.done.get(unit.idx)
+        if outs is not None and self._score(unit, outs[0]) < self._score(unit, old):
+            self._record([unit], found, [outs[0]])
+
+    def _score(self, unit: Unit, out: str | None) -> int:
+        """0 = clean, 1 = some sentences still in the source language, 2 = untranslated."""
+        src, tgt = self.glossary.source_lang, self.glossary.target_lang
+        if out is None or _unchanged(unit.text, out) or self._echoed([unit], [out]):
+            return 2
+        return int(src != tgt and has_source_sentence(out, src))
 
     def _next_context(
         self, segment: list[Unit], outs: list[str | None], context: Context | None
@@ -182,8 +222,9 @@ class _Job:
             if out is None:
                 self.failed.add((unit.block, unit.cell))
                 continue
-            for entry in self.glossary.verify(out, found):
-                self.misses.append(TermMiss(unit.block, unit.text[:80], entry))
+            self.misses[unit.idx] = [
+                TermMiss(unit.block, unit.text[:80], e) for e in self.glossary.verify(out, found)
+            ]
             if _unchanged(unit.text, out):  # the model handed the source back
                 self.failed.add((unit.block, unit.cell))
             else:

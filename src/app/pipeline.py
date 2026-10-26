@@ -28,7 +28,7 @@ class JobResult:
     pdf: bytes
     translation: TranslationResult
     untouched: tuple[str, ...]  # DOCX features that were not translated
-    marked: tuple[int, ...] = ()  # ``document`` blocks left in the source language
+    marked: tuple[int, ...] = ()  # ``document`` blocks with source-language text left
 
     @property
     def hits(self) -> int:
@@ -89,7 +89,8 @@ def run_job(
             cancel=cancel,
             segment_chars=segment_chars,
         )
-        document, untouched, marked = translation.document, (), translation.failed
+        document, untouched = translation.document, ()
+        marked = tuple(sorted(translation.failed + translation.mixed))
         docx = write_docx(document, title=stem, language=target, author=user)
     pdf = write_pdf(document, title=stem, author=user)
     md = write_md(document)
@@ -97,7 +98,7 @@ def run_job(
 
 
 def report_csv(result: JobResult) -> bytes:
-    """Term misses, failed blocks and untouched features as CSV (UTF-8 with BOM for Excel)."""
+    """Term misses, failed and mixed blocks, untouched features as CSV (UTF-8 BOM for Excel)."""
     buf = io.StringIO()
     out = csv.writer(buf)
     out.writerow(["kind", "detail", "source", "expected"])
@@ -105,6 +106,8 @@ def report_csv(result: JobResult) -> bytes:
         out.writerow(["term", miss.excerpt, miss.entry.source, miss.entry.target])
     for excerpt in failed_excerpts(result):
         out.writerow(["failed", excerpt, "", ""])
+    for excerpt in mixed_excerpts(result):
+        out.writerow(["language", excerpt, "", ""])
     for feature in result.untouched:
         out.writerow(["untouched", feature, "", ""])
     return b"\xef\xbb\xbf" + buf.getvalue().encode()
@@ -112,7 +115,16 @@ def report_csv(result: JobResult) -> bytes:
 
 def failed_excerpts(result: JobResult) -> list[str]:
     """The start of each text that stayed in the source language."""
-    blocks = [result.translation.document[i] for i in result.translation.failed]
+    return _excerpts(result, result.translation.failed)
+
+
+def mixed_excerpts(result: JobResult) -> list[str]:
+    """The start of each translated text that still has source-language sentences."""
+    return _excerpts(result, result.translation.mixed)
+
+
+def _excerpts(result: JobResult, indices: tuple[int, ...]) -> list[str]:
+    blocks = [result.translation.document[i] for i in indices]
     texts = [b.text or " | ".join(c for row in b.rows for c in row) for b in blocks]
     return [strip_tags(t)[:_EXCERPT] for t in texts]
 

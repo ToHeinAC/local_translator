@@ -359,6 +359,7 @@ def test_login_attempts_and_logout_are_logged(env: Env, monkeypatch: pytest.Monk
 
 
 def test_jobs_and_downloads_are_logged_without_the_file_name(env: Env) -> None:
+    env.llm = lambda _p: "[[1]] The quick brown fox jumps over the lazy dog on the river bank."
     at = _upload(env.app("Gast"), name="geheimbericht.md")
     at.file_uploader[1].upload("g.csv", GLOSSARY)
     at.run()
@@ -423,3 +424,12 @@ def test_usage_statistics_are_for_admins_only(env: Env) -> None:
 
 def test_usage_statistics_without_a_log_say_so(env: Env) -> None:
     assert any("Noch keine Nutzungsdaten" in i.value for i in env.app("T. Hein").info)
+
+
+def test_passages_still_in_the_source_language_after_review_are_listed(env: Env) -> None:
+    mixed = f"The fox jumps over the dog on the river bank today. {GERMAN}"
+    env.llm = lambda _p: f"[[1]] {mixed}"
+    at = _translate(_upload(env.app(), data=f"{GERMAN} Noch ein Satz.".encode()))
+    warnings = " ".join(w.value for w in at.warning)
+    assert "Quellsprache" in warnings
+    assert mixed[:60] in warnings
